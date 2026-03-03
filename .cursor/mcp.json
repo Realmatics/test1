@@ -1,14 +1,13 @@
 {
   "mcpServers": {
-    "ftp-webspace": {
+    "sftp-webspace": {
       "command": "node",
-      "args": ["/workspace/mcp-server-ftp/build/index.js"],
+      "args": ["/workspace/mcp-server-sftp/index.js"],
       "env": {
-        "FTP_HOST": "52154060.ssh.w1.strato.hosting",
-        "FTP_PORT": "21",
-        "FTP_USER": "stu123908242",
-        "FTP_PASSWORD": "asf58-24sf25",
-        "FTP_SECURE": "false"
+        "SFTP_HOST": "52154060.ssh.w1.strato.hosting",
+        "SFTP_PORT": "22",
+        "SFTP_USER": "stu123908242",
+        "SFTP_PASSWORD": "asf58-24sf25"
       }
     }
   }

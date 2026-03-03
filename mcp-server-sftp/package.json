@@ -1,0 +1,18 @@
+{
+  "name": "mcp-server-sftp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "ssh2-sftp-client": "^12.0.1",
+    "zod": "^4.3.6"
+  }
+}

@@ -1,34 +1,39 @@
 ## Cursor Cloud specific instructions
 
-### FTP Webspace MCP Server
+### SFTP Webspace MCP Server
 
-Dieses Repository enthält einen konfigurierten MCP Server für FTP-Webspace-Zugriff (`mcp-server-ftp`).
+Dieses Repository enthält einen maßgeschneiderten SFTP MCP Server für den Zugriff auf den Strato-Webspace.
 
 **Aufbau:**
-- `mcp-server-ftp/` – Geklonter und gebauter MCP Server (von [alxspiker/mcp-server-ftp](https://github.com/alxspiker/mcp-server-ftp))
-- `.cursor/mcp.json` – Cursor MCP-Konfiguration mit Platzhalter-Werten
+- `mcp-server-sftp/` – Eigener SFTP MCP Server (Node.js, ssh2-sftp-client basiert, Passwort-Auth)
+- `mcp-server-ftp/` – FTP MCP Server (nur für reines FTP, nicht für Strato geeignet da SFTP-only)
+- `.cursor/mcp.json` – Cursor MCP-Konfiguration
+
+**Wichtig:** Der Strato-Server (`52154060.ssh.w1.strato.hosting`) erlaubt nur SFTP (Port 22), kein FTP (Port 21) und keinen Shell-Zugriff. Deshalb wird der `mcp-server-sftp` verwendet, nicht `mcp-server-ftp`.
 
 **Verfügbare MCP Tools:**
 | Tool | Beschreibung |
 |------|-------------|
-| `list-directory` | Verzeichnisinhalt auf dem FTP-Server auflisten |
-| `download-file` | Datei vom FTP-Server herunterladen |
-| `upload-file` | Datei auf den FTP-Server hochladen |
-| `create-directory` | Verzeichnis auf dem FTP-Server erstellen |
-| `delete-file` | Datei vom FTP-Server löschen |
-| `delete-directory` | Verzeichnis vom FTP-Server löschen |
+| `list-directory` | Verzeichnisinhalt auf dem SFTP-Server auflisten |
+| `download-file` | Datei vom SFTP-Server herunterladen (Textinhalt) |
+| `upload-file` | Datei auf den SFTP-Server hochladen |
+| `create-directory` | Verzeichnis auf dem SFTP-Server erstellen |
+| `delete-file` | Datei vom SFTP-Server löschen |
+| `delete-directory` | Verzeichnis vom SFTP-Server löschen |
 
-**FTP-Zugangsdaten konfigurieren:**
-Die FTP-Zugangsdaten müssen in `.cursor/mcp.json` unter `env` eingetragen werden:
-- `FTP_HOST` – Hostname des FTP-Servers
-- `FTP_PORT` – Port (Standard: 21)
-- `FTP_USER` – FTP-Benutzername
-- `FTP_PASSWORD` – FTP-Passwort
-- `FTP_SECURE` – FTPS verwenden (`true`/`false`)
+**Umgebungsvariablen für den SFTP MCP Server:**
+- `SFTP_HOST` – Hostname des SFTP-Servers
+- `SFTP_PORT` – Port (Standard: 22)
+- `SFTP_USER` – SFTP-Benutzername
+- `SFTP_PASSWORD` – SFTP-Passwort
 
-Alternativ können diese als Cursor Cloud Secrets eingerichtet werden (`FTP_HOST`, `FTP_PORT`, `FTP_USER`, `FTP_PASSWORD`, `FTP_SECURE`), dann muss `.cursor/mcp.json` entsprechend auf die Umgebungsvariablen verweisen.
-
-**MCP Server neu bauen (falls nötig):**
+**MCP Server manuell testen:**
 ```bash
-cd mcp-server-ftp && npm install && npm run build
+cd mcp-server-sftp
+printf '...' | SFTP_HOST=... SFTP_USER=... SFTP_PASSWORD=... node index.js
+```
+
+**Abhängigkeiten neu installieren (falls nötig):**
+```bash
+cd mcp-server-sftp && npm install
 ```
