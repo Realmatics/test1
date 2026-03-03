@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Chat mit Datei-Upload</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Gemini Chat</h1>
+            <p class="subtitle">Stelle Fragen und lade Dateien hoch für Analyse</p>
+            <div class="model-selector">
+                <label for="modelSelect">Modell:</label>
+                <select id="modelSelect" class="model-select">
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (20 pro Tag) - Textausgabemodelle</option>
+                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (20 pro Tag) - Textausgabemodelle</option>
+                    <option value="gemini-2.5-flash-tts">gemini-2.5-flash-tts (10 pro Tag) - Multimodale generative Modelle</option>
+                    <option value="gemini-3-flash">gemini-3-flash (20 pro Tag) - Textausgabemodelle</option>
+                    <option value="gemini-robotics-er-1.5-preview">gemini-robotics-er-1.5-preview (20 pro Tag) - Andere Modelle</option>
+                    <option value="gemma-3-12b">gemma-3-12b (14.4k pro Tag) - Andere Modelle</option>
+                    <option value="gemma-3-1b" selected>gemma-3-1b (14.4k pro Tag) - Andere Modelle</option>
+                    <option value="gemma-3-27b">gemma-3-27b (14.4k pro Tag) - Andere Modelle</option>
+                    <option value="gemma-3-4b">gemma-3-4b (14.4k pro Tag) - Andere Modelle</option>
+                    <option value="gemini-2.5-flash-native-audio-dialog">gemini-2.5-flash-native-audio-dialog (Unbegrenzt) - Live-API</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="main-content">
+                <div id="chatMessages" class="chat-messages"></div>
+                
+                <div class="file-upload-section">
+                <label for="fileInput" class="file-label">
+                    <span class="file-icon">📎</span>
+                    <span>Datei hochladen (PDF, TXT, CSV, DOCX, Bilder)</span>
+                </label>
+                <input type="file" id="fileInput" accept=".pdf,.txt,.csv,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp" style="display: none;">
+                <div id="fileInfo" class="file-info" style="display: none;">
+                    <span id="fileName"></span>
+                    <button id="removeFile" class="remove-file-btn">✕</button>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Stelle eine Frage oder beschreibe, was du wissen möchtest..."
+                    rows="2"
+                ></textarea>
+                <button id="sendButton" class="send-button">
+                    <span>Send</span>
+                    <span class="send-icon">➤</span>
+                </button>
+            </div>
+            </div>
+
+            <!-- Bereich für übertragene Daten -->
+            <div class="data-transmission-section">
+                <div class="data-transmission-header">
+                    <h3>🔒 Anonymisierte Datenübertragung</h3>
+                    <button id="toggleDataView" class="toggle-btn">▼ Einblenden</button>
+                </div>
+                <div id="dataTransmissionContent" class="data-transmission-content" style="display: none;">
+                    <p class="data-info-text">
+                        Hier siehst du die anonymisierten Daten, die an die KI gesendet wurden. 
+                        Alle privaten Informationen wurden durch anonymisierte Werte ersetzt.
+                    </p>
+                    <div id="transmittedData" class="transmitted-data">
+                        <p class="no-data">Noch keine Daten übertragen.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="anonymizer.js"></script>
+    <script src="vectorizer.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
+

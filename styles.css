@@ -1,0 +1,426 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 40px);
+}
+
+.header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    opacity: 0.9;
+    font-size: 1.1em;
+    margin-bottom: 15px;
+}
+
+.model-selector {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.model-selector label {
+    font-size: 0.95em;
+    opacity: 0.95;
+    font-weight: 500;
+}
+
+.model-select {
+    padding: 8px 15px;
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: all 0.3s;
+    min-width: 300px;
+    backdrop-filter: blur(10px);
+}
+
+.model-select:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.model-select:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.model-select option {
+    background: #667eea;
+    color: white;
+    padding: 10px;
+}
+
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.message {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.message.user {
+    align-items: flex-end;
+}
+
+.message.assistant {
+    align-items: flex-start;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 15px 20px;
+    border-radius: 18px;
+    word-wrap: break-word;
+    line-height: 1.5;
+}
+
+.message.user .message-bubble {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.message.assistant .message-bubble {
+    background: white;
+    color: #333;
+    border: 1px solid #e0e0e0;
+    border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.message-time {
+    font-size: 0.75em;
+    color: #999;
+    margin-top: 5px;
+    padding: 0 5px;
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+    border-top-color: #667eea;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.file-upload-section {
+    padding: 15px 20px;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+}
+
+.file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+    font-size: 0.9em;
+    color: #667eea;
+}
+
+.file-label:hover {
+    background: #e0e0e0;
+}
+
+.file-icon {
+    font-size: 1.2em;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    padding: 10px 15px;
+    background: #e8f5e9;
+    border-radius: 10px;
+    font-size: 0.9em;
+    color: #2e7d32;
+}
+
+.remove-file-btn {
+    background: #ff5252;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.3s;
+}
+
+.remove-file-btn:hover {
+    background: #ff1744;
+}
+
+.input-container {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+}
+
+#messageInput {
+    flex: 1;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 1em;
+    font-family: inherit;
+    resize: none;
+    transition: border-color 0.3s;
+}
+
+#messageInput:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.send-button {
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.send-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.send-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.send-icon {
+    font-size: 1.2em;
+}
+
+/* Scrollbar Styling */
+.chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.data-transmission-section {
+    background: #f8f9fa;
+    border-top: 2px solid #e0e0e0;
+    max-height: 40vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.data-transmission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #e8f5e9;
+    border-bottom: 1px solid #c8e6c9;
+}
+
+.data-transmission-header h3 {
+    font-size: 1.1em;
+    color: #2e7d32;
+    margin: 0;
+}
+
+.toggle-btn {
+    background: #4caf50;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background 0.3s;
+}
+
+.toggle-btn:hover {
+    background: #45a049;
+}
+
+.data-transmission-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.data-info-text {
+    padding: 12px 20px;
+    background: #fff3cd;
+    color: #856404;
+    font-size: 0.9em;
+    margin: 0;
+    border-bottom: 1px solid #ffeaa7;
+}
+
+.transmitted-data {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px 20px;
+    background: white;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.transmitted-data .no-data {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
+.transmitted-data-entry {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f5f5f5;
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+}
+
+.transmitted-data-entry-header {
+    font-weight: bold;
+    color: #667eea;
+    margin-bottom: 10px;
+    font-size: 0.95em;
+}
+
+.transmitted-data-entry-content {
+    color: #333;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.transmitted-data-entry-time {
+    font-size: 0.75em;
+    color: #999;
+    margin-top: 8px;
+}
+
+/* Scrollbar für transmitted-data */
+.transmitted-data::-webkit-scrollbar {
+    width: 8px;
+}
+
+.transmitted-data::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.transmitted-data::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.transmitted-data::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.transmitted-data-entry-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.transmitted-data-entry-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.transmitted-data-entry-content::-webkit-scrollbar-thumb {
+    background: #aaa;
+    border-radius: 3px;
+}
+

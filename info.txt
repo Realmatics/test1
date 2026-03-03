@@ -1,0 +1,1 @@
+die 50mitarbeiter csv geht nur bis ca. 20 mas bei den gemma Modellen , sonst kontextfenstre schon zu gtoß
