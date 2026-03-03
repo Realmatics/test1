@@ -2,3 +2,6 @@ mcp-server-ftp/node_modules/
 mcp-server-ftp/build/
 mcp-server-sftp/node_modules/
 ssh-mcp-server-pkg/
+
+# Credentials – nie committen
+.cursor/mcp.json

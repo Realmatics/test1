@@ -4,10 +4,10 @@
       "command": "node",
       "args": ["/workspace/mcp-server-sftp/index.js"],
       "env": {
-        "SFTP_HOST": "52154060.ssh.w1.strato.hosting",
+        "SFTP_HOST": "YOUR_SFTP_HOST",
         "SFTP_PORT": "22",
-        "SFTP_USER": "stu123908242",
-        "SFTP_PASSWORD": "asf58-24sf25"
+        "SFTP_USER": "YOUR_SFTP_USER",
+        "SFTP_PASSWORD": "YOUR_SFTP_PASSWORD"
       }
     }
   }

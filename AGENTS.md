@@ -7,9 +7,17 @@ Dieses Repository enthält einen maßgeschneiderten SFTP MCP Server für den Zug
 **Aufbau:**
 - `mcp-server-sftp/` – Eigener SFTP MCP Server (Node.js, ssh2-sftp-client basiert, Passwort-Auth)
 - `mcp-server-ftp/` – FTP MCP Server (nur für reines FTP, nicht für Strato geeignet da SFTP-only)
-- `.cursor/mcp.json` – Cursor MCP-Konfiguration
+- `.cursor/mcp.json` – Cursor MCP-Konfiguration (in `.gitignore`, nicht committet)
+- `.cursor/mcp.json.example` – Vorlage ohne Zugangsdaten
 
-**Wichtig:** Der Strato-Server (`52154060.ssh.w1.strato.hosting`) erlaubt nur SFTP (Port 22), kein FTP (Port 21) und keinen Shell-Zugriff. Deshalb wird der `mcp-server-sftp` verwendet, nicht `mcp-server-ftp`.
+**Wichtig:** Der Strato-Server erlaubt nur SFTP (Port 22), kein FTP (Port 21) und keinen Shell-Zugriff. Deshalb wird der `mcp-server-sftp` verwendet, nicht `mcp-server-ftp`.
+
+**Ersteinrichtung der MCP-Konfiguration:**
+```bash
+cp .cursor/mcp.json.example .cursor/mcp.json
+# Dann die Zugangsdaten in .cursor/mcp.json eintragen
+```
+Alternativ die Credentials als Cursor Cloud Secrets hinterlegen: `SFTP_HOST`, `SFTP_PORT`, `SFTP_USER`, `SFTP_PASSWORD`.
 
 **Verfügbare MCP Tools:**
 | Tool | Beschreibung |
