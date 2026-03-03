@@ -41,7 +41,7 @@ function generateIndexHtml($config) {
                     </div>
                     <div class="project-content">
                         <h3>' . htmlspecialchars($project['title'] ?? '') . '</h3>
-                        <p>' . htmlspecialchars($project['description'] ?? '') . '</p>
+                        ' . ($project['description'] ?? '') . '
                         <div class="project-links">
                             <a href="' . htmlspecialchars($project['demo_link'] ?? '#') . '" class="project-link">
                                 <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
@@ -67,7 +67,7 @@ function generateIndexHtml($config) {
                 </div>
                 <div class="project-content">
                     <h3>' . htmlspecialchars($project['title'] ?? '') . '</h3>
-                    <p>' . htmlspecialchars($project['description'] ?? '') . '</p>
+                    ' . ($project['description'] ?? '') . '
                     <div class="project-links">
                         <a href="' . htmlspecialchars($project['demo_link'] ?? '#') . '" class="project-link">
                             <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
@@ -127,7 +127,7 @@ function generateIndexHtml($config) {
         <h2>Über mich</h2>
         <div class="about-content">
             <div class="about-text">
-                <p>' . htmlspecialchars($config['site']['about_text'] ?? '') . '</p>
+                ' . ($config['site']['about_text'] ?? '') . '
                 <div class="skills">
                     <h3>Meine Fähigkeiten</h3>
                     <div class="skill-tags">
@@ -369,7 +369,7 @@ function generateDatenschutzHtml($config) {
         <section>
             <h2>5. Kontakt</h2>
             <p>Bei Fragen zur Erhebung, Verarbeitung oder Nutzung Ihrer personenbezogenen Daten, bei Auskünften, Berichtigung, Sperrung oder Löschung von Daten wenden Sie sich bitte an:</p>
-            <p>' . nl2br(htmlspecialchars($config['datenschutz']['contact_info'] ?? '[Kontaktdaten]')) . '</p>
+            ' . ($config['datenschutz']['contact_info'] ?? '<p>[Kontaktdaten]</p>') . '
         </section>
     </div>
 
