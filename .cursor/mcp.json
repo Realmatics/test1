@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "ftp-webspace": {
+      "command": "node",
+      "args": ["/workspace/mcp-server-ftp/build/index.js"],
+      "env": {
+        "FTP_HOST": "localhost",
+        "FTP_PORT": "21",
+        "FTP_USER": "anonymous",
+        "FTP_PASSWORD": "",
+        "FTP_SECURE": "false"
+      }
+    }
+  }
+}
