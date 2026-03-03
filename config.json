@@ -1,0 +1,63 @@
+{
+    "site": {
+        "title": "Mein Portfolio",
+        "hero_title": "Willkommen in meinem Portfolio",
+        "hero_subtitle": "Webentwickler & Designer",
+        "about_text": "<p>Ich bin ein leidenschaftlicher Webentwickler mit Fokus auf moderne und benutzerfreundliche Webanwendungen.f<\/p>",
+        "skills": [
+            "HTML5",
+            "CSS3",
+            "JavaScript",
+            "React",
+            "Node.js"
+        ],
+        "footer_text": "© 2024 Mein Portfolio. Alle Rechte vorbehalten."
+    },
+    "projects": [
+        {
+            "title": "E-Commerce Plattform",
+            "description": "<p>Eine moderne E-Commerce-Lösung mit React und Node.js. Features: Warenkorb, Zahlungsabwicklung, Benutzerauthentifizierung und ein intuitives Admin-Dashboard.<\/p>",
+            "image": "https:\/\/images.pexels.com\/photos\/34577\/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1200&h=800&dpr=2",
+            "demo_link": "#",
+            "github_link": "#"
+        },
+        {
+            "title": "Task Management App",
+            "description": "<p>Eine intuitive Task-Management-Anwendung mit Drag &amp; Drop-Funktionalität, Echtzeit-Updates und Team-Kollaboration. Entwickelt mit React und Firebase.<\/p>",
+            "image": "https:\/\/images.pexels.com\/photos\/34577\/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1200&h=800&dpr=2",
+            "demo_link": "#",
+            "github_link": "#"
+        },
+        {
+            "title": "Social Media Dashboard",
+            "description": "<p>Ein umfassendes Dashboard für Social Media Analytics mit interaktiven Grafiken und Echtzeit-Datenvisualisierung. Integriert mit verschiedenen Social Media APIs.<\/p>",
+            "image": "https:\/\/images.pexels.com\/photos\/34577\/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1200&h=800&dpr=2",
+            "demo_link": "#",
+            "github_link": "#"
+        }
+    ],
+    "social": {
+        "github": "#",
+        "linkedin": "#",
+        "twitter": "#"
+    },
+    "impressum": {
+        "name": "[Ihr vollständiger Name]",
+        "address": "[Ihre Straße und Hausnummer]",
+        "city": "[PLZ und Ort]",
+        "phone": "[Ihre Telefonnummer]",
+        "email": "[Ihre E-Mail-Adresse]",
+        "tax_id": "[Ihre Umsatzsteuer-ID]",
+        "profession": "[Ihre Berufsbezeichnung]",
+        "chamber": "[Name der zuständigen Kammer]",
+        "country": "[Land der Verleihung]"
+    },
+    "datenschutz": {
+        "contact_info": "<p>[Ihre Kontaktdaten hier einfügen]<\/p>"
+    },
+    "neue_seite": {
+        "titel": "Meine neue Seite",
+        "dateiname": "neue-seite",
+        "inhalt": "<h1>Willkommen auf meiner neuen Seite<\/h1><p>Hier können Sie Ihren Inhalt erstellen...<\/p>"
+    }
+}
