@@ -793,9 +793,10 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
         <div class="tabs">
             <div class="tab active">Allgemein</div>
             <div class="tab">Projekte</div>
-                            <div class="tab">Impressum</div>
-                <div class="tab">Datenschutz</div>
-                <div class="tab">Neue Seite</div>
+            <div class="tab">Impressum</div>
+            <div class="tab">Datenschutz</div>
+            <div class="tab">Neue Seite</div>
+            <div class="tab">Website kopieren</div>
         </div>
 
         <form method="POST">
@@ -964,6 +965,65 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
 
             <button type="submit" name="save_config" class="save-btn">Speichern und Vorschau generieren</button>
         </form>
+
+        <!-- Website kopieren (außerhalb des Hauptformulars) -->
+        <div id="clone_website" class="tab-content">
+            <div class="section">
+                <h2>Website kopieren</h2>
+                <p style="color: #666; margin-bottom: 20px;">Geben Sie eine URL ein, um eine fremde Website als funktionsfähige Kopie in ein Unterverzeichnis zu laden. Die Kopie enthält alle CSS-Styles, Bilder, Schriften und JavaScript-Dateien.</p>
+                <div class="form-group">
+                    <label for="clone_url">Website-URL:</label>
+                    <input type="text" id="clone_url" placeholder="https://www.beispiel.de/" style="font-size: 16px; padding: 12px;">
+                </div>
+                <button type="button" id="clone_btn" onclick="cloneWebsite()" style="background: #6f42c1; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
+                    🌐 Website kopieren
+                </button>
+                <div id="clone_status" style="margin-top: 20px; display: none;">
+                    <div id="clone_spinner" style="display: none; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 5px;">
+                        <strong>⏳ Kopiervorgang läuft...</strong>
+                        <p>Dies kann je nach Website-Größe 10-60 Sekunden dauern.</p>
+                    </div>
+                    <div id="clone_result" style="display: none; padding: 20px; border-radius: 5px; margin-top: 10px;"></div>
+                    <div id="clone_log" style="display: none; margin-top: 10px; padding: 15px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+                </div>
+                <div style="margin-top: 30px;">
+                    <h3>Kopierte Websites</h3>
+                    <div id="cloned_sites_list">
+                        <?php
+                        $dirs = glob(__DIR__ . '/*/index.html');
+                        $cloned = [];
+                        foreach ($dirs as $dir) {
+                            $dirPath = dirname($dir);
+                            $dirName = basename($dirPath);
+                            if (!in_array($dirName, ['assets', 'css', 'js', 'images', 'fonts'])) {
+                                $metaFile = $dirPath . '/index.html';
+                                $meta = file_get_contents($metaFile);
+                                $source = '';
+                                if (preg_match('/cloned-from"\s+content="([^"]+)"/', $meta, $m)) {
+                                    $source = $m[1];
+                                }
+                                if ($source) {
+                                    $cloned[] = ['dir' => $dirName, 'source' => $source, 'size' => count(glob($dirPath . '/**/*', GLOB_NOSORT))];
+                                }
+                            }
+                        }
+                        if (empty($cloned)): ?>
+                            <p style="color: #999;">Noch keine Websites kopiert.</p>
+                        <?php else:
+                            foreach ($cloned as $site): ?>
+                                <div style="padding: 10px 15px; margin: 5px 0; background: #f0f0f0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong><a href="<?php echo htmlspecialchars($site['dir']); ?>/index.html" target="_blank"><?php echo htmlspecialchars($site['dir']); ?></a></strong>
+                                        <span style="color: #888; font-size: 12px; margin-left: 10px;">von: <?php echo htmlspecialchars($site['source']); ?></span>
+                                    </div>
+                                    <a href="<?php echo htmlspecialchars($site['dir']); ?>/index.html" target="_blank" style="background: #28a745; color: white; padding: 5px 12px; border-radius: 3px; text-decoration: none; font-size: 13px;">Öffnen ↗</a>
+                                </div>
+                            <?php endforeach;
+                        endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1106,7 +1166,7 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
             const tabs = document.querySelectorAll('.tab');
             tabs.forEach((tab, index) => {
                 tab.addEventListener('click', function() {
-                    const tabNames = ['general', 'projects', 'impressum', 'datenschutz', 'neue_seite'];
+                    const tabNames = ['general', 'projects', 'impressum', 'datenschutz', 'neue_seite', 'clone_website'];
                     showTab(tabNames[index]);
                 });
             });
@@ -1322,9 +1382,74 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
                 'projects': 2,
                 'impressum': 3,
                 'datenschutz': 4,
-                'neue_seite': 5
+                'neue_seite': 5,
+                'clone_website': 6
             };
             return tabMap[tabName] || 1;
+        }
+
+        function cloneWebsite() {
+            var url = document.getElementById('clone_url').value.trim();
+            if (!url) { alert('Bitte eine URL eingeben!'); return; }
+            
+            var statusDiv = document.getElementById('clone_status');
+            var spinnerDiv = document.getElementById('clone_spinner');
+            var resultDiv = document.getElementById('clone_result');
+            var logDiv = document.getElementById('clone_log');
+            var btn = document.getElementById('clone_btn');
+            
+            statusDiv.style.display = 'block';
+            spinnerDiv.style.display = 'block';
+            resultDiv.style.display = 'none';
+            logDiv.style.display = 'none';
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.textContent = '⏳ Wird kopiert...';
+            
+            var formData = new FormData();
+            formData.append('clone_url', url);
+            
+            fetch('clone_website.php', { method: 'POST', body: formData })
+                .then(function(resp) { return resp.json(); })
+                .then(function(data) {
+                    spinnerDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+                    
+                    if (data.success) {
+                        resultDiv.style.background = '#d4edda';
+                        resultDiv.style.border = '1px solid #c3e6cb';
+                        resultDiv.style.color = '#155724';
+                        resultDiv.innerHTML = '<strong>✅ Website erfolgreich kopiert!</strong><br>' +
+                            'Verzeichnis: <strong>' + data.directory + '</strong><br>' +
+                            'Dateien: ' + data.files + '<br><br>' +
+                            '<a href="' + data.directory + '/index.html" target="_blank" style="background: #28a745; color: white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">🌐 Kopie öffnen</a>';
+                    } else {
+                        resultDiv.style.background = '#f8d7da';
+                        resultDiv.style.border = '1px solid #f5c6cb';
+                        resultDiv.style.color = '#721c24';
+                        resultDiv.innerHTML = '<strong>❌ Fehler beim Kopieren!</strong>';
+                    }
+                    
+                    if (data.log && data.log.length > 0) {
+                        logDiv.style.display = 'block';
+                        logDiv.innerHTML = '<strong>Log:</strong><br>' + data.log.join('<br>');
+                    }
+                    
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.textContent = '🌐 Website kopieren';
+                })
+                .catch(function(err) {
+                    spinnerDiv.style.display = 'none';
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.background = '#f8d7da';
+                    resultDiv.style.border = '1px solid #f5c6cb';
+                    resultDiv.style.color = '#721c24';
+                    resultDiv.innerHTML = '<strong>❌ Fehler:</strong> ' + err.message;
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.textContent = '🌐 Website kopieren';
+                });
         }
 
         function addProject() {
