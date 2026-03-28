@@ -51,6 +51,8 @@ class WebsiteCloner {
         file_put_contents($this->targetDir . '/index.html', $html);
         $this->log[] = "index.html gespeichert";
         
+        $this->addProtection();
+        
         $this->log[] = "Fertig! " . count($this->downloaded) . " Dateien heruntergeladen.";
         return ['success' => true, 'log' => $this->log, 'files' => count($this->downloaded)];
     }
@@ -438,15 +440,37 @@ class WebsiteCloner {
         return $html;
     }
     
+    private function addProtection() {
+        $gate = '<?php
+session_start();
+$password = "vorschau2024";
+if (isset($_POST["pw"]) && $_POST["pw"] === $password) { $_SESSION["gate_ok"] = true; }
+if (!empty($_SESSION["gate_ok"])) { readfile(__DIR__ . "/index.html"); exit; }
+?><!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="robots" content="noindex, nofollow"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Zugang</title><style>body{font-family:Arial,sans-serif;background:#f4f4f4;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0}.box{background:#fff;padding:40px;border-radius:10px;box-shadow:0 2px 15px rgba(0,0,0,.1);text-align:center;max-width:400px}h2{margin-top:0;color:#333}input[type=password]{width:100%;padding:12px;border:1px solid #ddd;border-radius:5px;box-sizing:border-box;font-size:16px;margin:15px 0}button{background:#007cba;color:#fff;padding:12px 30px;border:none;border-radius:5px;cursor:pointer;font-size:16px;width:100%}button:hover{background:#005a87}p{color:#888;font-size:13px}</style></head><body><div class="box"><h2>Geschützter Bereich</h2><p>Bitte Passwort eingeben.</p><form method="POST"><input type="password" name="pw" placeholder="Passwort" autofocus required><button type="submit">Zugang</button></form></div></body></html>';
+        file_put_contents($this->targetDir . '/gate.php', $gate);
+        
+        file_put_contents($this->targetDir . '/robots.txt', "User-agent: *\nDisallow: /\n");
+        
+        $htaccess = "Header set X-Robots-Tag \"noindex, nofollow\"\nDirectoryIndex gate.php\nRewriteEngine On\nRewriteRule ^index\\.html$ gate.php [L]\n";
+        file_put_contents($this->targetDir . '/.htaccess', $htaccess);
+        
+        file_put_contents($this->targetDir . '/.clone_info', json_encode([
+            'source' => $this->sourceUrl,
+            'date' => date('Y-m-d H:i:s')
+        ]));
+        
+        $this->log[] = "Schutz hinzugefügt (gate.php, robots.txt, .htaccess)";
+    }
+    
     private function cleanupHTML(&$html) {
         // Remove analytics, tracking scripts
         $html = preg_replace('/<script[^>]*google-analytics[^>]*>.*?<\/script>/si', '', $html);
         $html = preg_replace('/<script[^>]*gtag[^>]*>.*?<\/script>/si', '', $html);
         $html = preg_replace('/<noscript[^>]*>.*?<\/noscript>/si', '', $html);
         
-        // Add meta tag showing this is a copy
+        // Block indexing
         $html = str_replace('</head>', 
-            '    <meta name="cloned-from" content="' . htmlspecialchars($this->sourceUrl) . '">' . "\n" . '</head>', 
+            '    <meta name="robots" content="noindex, nofollow">' . "\n" . '</head>', 
             $html);
         
         return $html;

@@ -990,21 +990,16 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
                     <h3>Kopierte Websites</h3>
                     <div id="cloned_sites_list">
                         <?php
-                        $dirs = glob(__DIR__ . '/*/index.html');
+                        $dirs = glob(__DIR__ . '/*/.clone_info');
                         $cloned = [];
-                        foreach ($dirs as $dir) {
-                            $dirPath = dirname($dir);
+                        foreach ($dirs as $infoFile) {
+                            $dirPath = dirname($infoFile);
                             $dirName = basename($dirPath);
-                            if (!in_array($dirName, ['assets', 'css', 'js', 'images', 'fonts'])) {
-                                $metaFile = $dirPath . '/index.html';
-                                $meta = file_get_contents($metaFile);
-                                $source = '';
-                                if (preg_match('/cloned-from"\s+content="([^"]+)"/', $meta, $m)) {
-                                    $source = $m[1];
-                                }
-                                if ($source) {
-                                    $cloned[] = ['dir' => $dirName, 'source' => $source, 'size' => count(glob($dirPath . '/**/*', GLOB_NOSORT))];
-                                }
+                            $info = json_decode(file_get_contents($infoFile), true);
+                            $source = $info['source'] ?? '';
+                            $date = $info['date'] ?? '';
+                            if ($source) {
+                                $cloned[] = ['dir' => $dirName, 'source' => $source, 'date' => $date];
                             }
                         }
                         if (empty($cloned)): ?>
