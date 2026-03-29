@@ -326,6 +326,18 @@ class WebsiteCloner {
             $html
         );
 
+        // <link rel="preload" as="image">
+        $html = preg_replace_callback(
+            '/<link[^>]*rel=["\']preload["\'][^>]*href=["\']([^"\']+)["\'][^>]*as=["\']image["\'][^>]*>/i',
+            function($m) use ($pageUrl) {
+                $resolved = $this->resolveRelativePath($pageUrl, $m[1]);
+                $local = $this->downloadAsset($resolved, 'images');
+                if ($local) { $this->stats['images']++; return preg_replace('/href=["\'][^"\']+["\']/', 'href="' . $local . '"', $m[0]); }
+                return $m[0];
+            },
+            $html
+        );
+
         // Favicon / icons
         $html = preg_replace_callback(
             '/<link[^>]*rel=["\'](?:icon|shortcut icon|apple-touch-icon)[^"\']*["\'][^>]*href=["\']([^"\']+)["\'][^>]*>/i',
@@ -478,64 +490,113 @@ class WebsiteCloner {
         $checks['index_size'] = $indexSize;
         $this->log[] = ($indexSize > 5000 ? "✅" : "⚠️") . " index.html Größe: " . $this->formatSize($indexSize);
 
-        // Check 5: No broken local references
-        $brokenRefs = 0;
-        if ($indexExists) {
-            $content = file_get_contents($this->targetDir . '/index.html');
-            preg_match_all('/(?:src|href)=["\'](?!http|#|data:|mailto:|tel:|javascript:)([^"\']+)["\']/i', $content, $refs);
-            foreach ($refs[1] as $ref) {
-                $ref = preg_replace('/\?.*$/', '', $ref);
-                if (!file_exists($this->targetDir . '/' . $ref)) {
-                    $brokenRefs++;
-                }
-            }
-        }
-        $checks['broken_refs'] = $brokenRefs;
-        $this->log[] = ($brokenRefs === 0 ? "✅" : "⚠️") . " $brokenRefs fehlende lokale Referenzen in index.html";
-
-        // Check 6: Subpages
+        // Check 5+6+7+8: Scan ALL pages for broken refs, images, bg-images
         $htmlFiles = glob($this->targetDir . '/*.html');
         $pageCount = $htmlFiles ? count($htmlFiles) : 0;
-        $checks['page_count'] = $pageCount;
-        $this->log[] = "ℹ️ $pageCount HTML-Seiten gesamt";
+        $totalBrokenRefs = 0;
+        $totalBgImages = 0;
+        $totalBgBroken = 0;
+        $pageDetails = [];
 
-        // Check 7: Total directory size
+        $this->log[] = "";
+        $this->log[] = "📋 Detailprüfung aller $pageCount Seiten:";
+
+        foreach ($htmlFiles as $file) {
+            $pageName = basename($file);
+            if ($pageName === 'check.html') continue;
+
+            $content = file_get_contents($file);
+            if ($content === false) continue;
+
+            // Broken local src/href
+            $pageBroken = 0;
+            $pageBrokenList = [];
+            preg_match_all('/(?:src|href)=["\'](?!http|#|data:|mailto:|tel:|javascript:)([^"\']+)["\']/i', $content, $refs);
+            foreach ($refs[1] as $ref) {
+                $clean = preg_replace('/\?.*$/', '', $ref);
+                if (!empty($clean) && !file_exists($this->targetDir . '/' . $clean)) {
+                    $pageBroken++;
+                    if (count($pageBrokenList) < 3) $pageBrokenList[] = $clean;
+                }
+            }
+            $totalBrokenRefs += $pageBroken;
+
+            // Broken img src specifically
+            $imgBroken = 0;
+            preg_match_all('/<img[^>]*src=["\']([^"\']+)["\']/i', $content, $imgRefs);
+            foreach ($imgRefs[1] as $ref) {
+                if (preg_match('/^(http|data:|#)/', $ref)) continue;
+                $clean = preg_replace('/\?.*$/', '', $ref);
+                if (!file_exists($this->targetDir . '/' . $clean)) $imgBroken++;
+            }
+
+            // CSS background-images
+            $bgTotal = 0;
+            $bgBroken = 0;
+            preg_match_all('/background(?:-image)?\s*:\s*[^;]*url\(\s*["\']?([^"\')\s]+)["\']?\s*\)/i', $content, $bgRefs);
+            foreach ($bgRefs[1] as $ref) {
+                if (strpos($ref, 'data:') === 0) continue;
+                $bgTotal++;
+                $clean = preg_replace('/\?.*$/', '', $ref);
+                if (!file_exists($this->targetDir . '/' . $clean)) $bgBroken++;
+            }
+            $totalBgImages += $bgTotal;
+            $totalBgBroken += $bgBroken;
+
+            $icon = ($imgBroken === 0 && $bgBroken <= 2) ? "✅" : "⚠️";
+            $detail = "$icon $pageName";
+            $issues = [];
+            if ($pageBroken > 0) $issues[] = "$pageBroken fehlende Refs";
+            if ($imgBroken > 0) $issues[] = "$imgBroken fehlende Bilder";
+            if ($bgBroken > 0) $issues[] = "$bgBroken fehlende BG-Bilder";
+            if (!empty($issues)) $detail .= " (" . implode(', ', $issues) . ")";
+            $this->log[] = "  " . $detail;
+
+            $pageDetails[] = [
+                'name' => $pageName,
+                'size' => filesize($file),
+                'broken_refs' => $pageBroken,
+                'broken_refs_list' => $pageBrokenList,
+                'broken_imgs' => $imgBroken,
+                'bg_total' => $bgTotal,
+                'bg_broken' => $bgBroken,
+                'ok' => ($imgBroken === 0 && $bgBroken <= 2)
+            ];
+
+            unset($content);
+        }
+
+        $checks['page_count'] = $pageCount;
+        $checks['broken_refs'] = $totalBrokenRefs;
+        $checks['bg_images_total'] = $totalBgImages;
+        $checks['bg_images_broken'] = $totalBgBroken;
+        $checks['page_details'] = $pageDetails;
+
+        $pagesOk = count(array_filter($pageDetails, function($p) { return $p['ok']; }));
+        $this->log[] = "";
+        $this->log[] = "📊 $pagesOk/$pageCount Seiten ohne Fehler";
+        $this->log[] = "📊 Gesamt: $totalBrokenRefs fehlende Refs, $totalBgBroken/$totalBgImages fehlende BG-Bilder";
+
+        // Total directory size
         $totalSize = $this->dirSize($this->targetDir);
         $checks['total_size'] = $totalSize;
         $this->log[] = "ℹ️ Gesamtgröße: " . $this->formatSize($totalSize);
 
-        // Check 8: Verify inline CSS background-images are accessible
-        $bgBroken = 0;
-        $bgTotal = 0;
-        if ($indexExists) {
-            $content = file_get_contents($this->targetDir . '/index.html');
-            preg_match_all('/background-image:\s*url\(([^)]+)\)/', $content, $bgRefs);
-            foreach ($bgRefs[1] as $ref) {
-                $ref = trim($ref, '"\'');
-                $bgTotal++;
-                if (!file_exists($this->targetDir . '/' . $ref)) {
-                    $bgBroken++;
-                }
-            }
-            unset($content);
-        }
-        $checks['bg_images_total'] = $bgTotal;
-        $checks['bg_images_broken'] = $bgBroken;
-        $this->log[] = ($bgBroken === 0 ? "✅" : "⚠️") . " CSS background-images: $bgTotal gefunden, $bgBroken fehlen";
-
         // Generate visual check page
-        $this->generateCheckPage();
-        $this->log[] = "🔍 check.html generiert (visuelle Prüfseite)";
+        $this->generateCheckPage($pageDetails);
+        $this->log[] = "🔍 check.html generiert (visuelle Prüfseite mit Unterseiten-Report)";
 
         // Overall score
         $score = 0;
-        if ($indexExists) $score += 20;
-        if ($cssCount > 0) $score += 10;
-        if ($imgCount >= 3) $score += 20;
-        if ($indexSize > 10000) $score += 15;
-        if ($brokenRefs < 5) $score += 10;
+        if ($indexExists) $score += 15;
+        if ($cssCount > 0) $score += 5;
+        if ($imgCount >= 3) $score += 15;
+        if ($indexSize > 10000) $score += 10;
+        if ($totalBrokenRefs < 5) $score += 10; elseif ($totalBrokenRefs < 20) $score += 5;
         if ($pageCount > 1) $score += 10;
-        if ($bgBroken === 0 && $bgTotal > 0) $score += 15;
+        $bgRatio = $totalBgImages > 0 ? ($totalBgImages - $totalBgBroken) / $totalBgImages : 1;
+        if ($bgRatio >= 0.95) $score += 15; elseif ($bgRatio >= 0.8) $score += 10; elseif ($bgRatio >= 0.5) $score += 5;
+        if ($pagesOk === $pageCount) $score += 20; elseif ($pagesOk >= $pageCount * 0.8) $score += 15; elseif ($pagesOk > $pageCount * 0.5) $score += 8;
 
         $checks['score'] = $score;
         $grade = $score >= 90 ? 'A' : ($score >= 70 ? 'B' : ($score >= 50 ? 'C' : 'D'));
@@ -689,12 +750,13 @@ if (!empty($_SESSION["gate_ok"])) {
         $html = preg_replace('/<script[^>]*gtag[^>]*>.*?<\/script>/si', '', $html);
         $html = preg_replace('/<script[^>]*analytics[^>]*>.*?<\/script>/si', '', $html);
         $html = preg_replace('/<script[^>]*facebook[^>]*>.*?<\/script>/si', '', $html);
+        $html = preg_replace('/<link[^>]*href=["\']\/\/gmpg\.org[^"\']*["\'][^>]*>/i', '', $html);
         $html = str_replace('</head>',
             '    <meta name="robots" content="noindex, nofollow">' . "\n" . '</head>', $html);
         return $html;
     }
 
-    private function generateCheckPage() {
+    private function generateCheckPage($pageDetails = []) {
         $imgFiles = glob($this->targetDir . '/images/*');
         $imgHtml = '';
         $count = 0;
@@ -718,6 +780,27 @@ if (!empty($_SESSION["gate_ok"])) {
             }
         }
 
+        // Build page report table
+        $pageReport = '';
+        if (!empty($pageDetails)) {
+            $pageReport = '<table class="report-table"><tr><th>Seite</th><th>Größe</th><th>Fehlende Refs</th><th>Fehlende Bilder</th><th>BG-Bilder</th><th>Status</th></tr>';
+            foreach ($pageDetails as $pd) {
+                $status = $pd['ok'] ? '<span style="color:#28a745">✅ OK</span>' : '<span style="color:#dc3545">⚠️ Probleme</span>';
+                $bgText = $pd['bg_total'] > 0 ? ($pd['bg_broken'] . '/' . $pd['bg_total'] . ' fehlen') : '-';
+                $brokenDetail = '';
+                if (!empty($pd['broken_refs_list'])) {
+                    $brokenDetail = '<br><small style="color:#999">' . implode(', ', array_map('htmlspecialchars', $pd['broken_refs_list'])) . '</small>';
+                }
+                $pageReport .= '<tr><td><a href="' . htmlspecialchars($pd['name']) . '" target="_blank">' . htmlspecialchars($pd['name']) . '</a></td>'
+                    . '<td>' . $this->formatSize($pd['size']) . '</td>'
+                    . '<td>' . $pd['broken_refs'] . $brokenDetail . '</td>'
+                    . '<td>' . $pd['broken_imgs'] . '</td>'
+                    . '<td>' . $bgText . '</td>'
+                    . '<td>' . $status . '</td></tr>';
+            }
+            $pageReport .= '</table>';
+        }
+
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="robots" content="noindex, nofollow">
 <title>Qualitätsprüfung</title><style>
 body{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5}
@@ -726,15 +809,21 @@ h1{color:#333}h2{color:#555;border-bottom:2px solid #007cba;padding-bottom:8px}
 .stat{background:white;padding:15px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
 .stat .num{font-size:28px;font-weight:bold;color:#007cba}
 .stat .label{font-size:12px;color:#888;margin-top:4px}
-.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:15px 0}
-.img-card{background:white;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-.img-card img{width:100%;height:150px;object-fit:cover}
+.report-table{width:100%;border-collapse:collapse;background:white;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);margin:15px 0}
+.report-table th{background:#007cba;color:white;padding:10px 12px;text-align:left;font-size:13px}
+.report-table td{padding:8px 12px;border-bottom:1px solid #eee;font-size:13px}
+.report-table tr:hover{background:#f8f9fa}
+.report-table a{color:#007cba}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin:15px 0}
+.img-card{background:white;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);cursor:pointer}
+.img-card img{width:100%;height:130px;object-fit:cover}
 .img-card.broken{border:3px solid #dc3545}
 .img-card.broken img{display:none}
-.img-card.broken::before{content:"❌ FEHLT";display:block;height:150px;line-height:150px;text-align:center;color:#dc3545;font-weight:bold;background:#fff5f5}
-.img-info{padding:6px 10px;font-size:11px;color:#666;word-break:break-all}
+.img-card.broken::before{content:"❌ FEHLT";display:block;height:130px;line-height:130px;text-align:center;color:#dc3545;font-weight:bold;background:#fff5f5}
+.img-info{padding:4px 8px;font-size:10px;color:#666;word-break:break-all}
 .page-link{display:inline-block;background:#007cba;color:white;padding:6px 14px;border-radius:4px;text-decoration:none;margin:3px;font-size:13px}
 .page-link:hover{background:#005a87}
+.tab-nav{display:flex;gap:5px;margin:15px 0}.tab-btn{padding:8px 18px;background:#eee;border:none;border-radius:5px 5px 0 0;cursor:pointer;font-size:13px}.tab-btn.active{background:#007cba;color:white}.tab-panel{display:none}.tab-panel.active{display:block}
 </style></head><body>
 <h1>🔍 Qualitätsprüfung</h1>
 <div class="stats">
@@ -744,11 +833,34 @@ h1{color:#333}h2{color:#555;border-bottom:2px solid #007cba;padding-bottom:8px}
 <div class="stat"><div class="num">' . count(glob($this->targetDir . '/fonts/*')) . '</div><div class="label">Schriften</div></div>
 <div class="stat"><div class="num">' . count(glob($this->targetDir . '/js/*')) . '</div><div class="label">JS</div></div>
 </div>
-<h2>Seiten</h2>' . $pageLinks . '
+
+<div class="tab-nav">
+<button class="tab-btn active" onclick="showTab(\'pages\',this)">📋 Seiten-Report</button>
+<button class="tab-btn" onclick="showTab(\'images\',this)">🖼️ Bilder-Galerie</button>
+<button class="tab-btn" onclick="showTab(\'links\',this)">🔗 Seiten-Links</button>
+</div>
+
+<div id="tab-pages" class="tab-panel active">
+<h2>Seiten-Report</h2>
+<p>Jede kopierte Seite wird auf fehlende Referenzen, Bilder und CSS-Hintergründe geprüft.</p>
+' . $pageReport . '
+</div>
+
+<div id="tab-images" class="tab-panel">
 <h2>Alle Bilder (' . $count . ')</h2>
-<p>Bilder mit rotem Rand = fehlen/kaputt. Klicken Sie auf ein Bild, um es in voller Größe zu sehen.</p>
+<p>Rot umrandet = fehlt/kaputt.</p>
 <div class="img-grid">' . $imgHtml . '</div>
-<script>document.querySelectorAll(".img-card img").forEach(function(img){img.addEventListener("click",function(){window.open(img.src,"_blank")})});</script>
+</div>
+
+<div id="tab-links" class="tab-panel">
+<h2>Seiten-Links</h2>
+' . $pageLinks . '
+</div>
+
+<script>
+function showTab(id,btn){document.querySelectorAll(".tab-panel").forEach(function(p){p.classList.remove("active")});document.querySelectorAll(".tab-btn").forEach(function(b){b.classList.remove("active")});document.getElementById("tab-"+id).classList.add("active");btn.classList.add("active")}
+document.querySelectorAll(".img-card img").forEach(function(img){img.addEventListener("click",function(){window.open(img.src,"_blank")})});
+</script>
 </body></html>';
         file_put_contents($this->targetDir . '/check.html', $html);
     }
