@@ -178,7 +178,7 @@ class WebsiteCloner {
         $html = preg_replace_callback(
             '/<style[^>]*>(.*?)<\/style>/si',
             function($m) use ($pageUrl) {
-                return '<style>' . $this->rewriteCSSUrls($m[1], $pageUrl) . '</style>';
+                return '<style>' . $this->rewriteCSSUrls($m[1], $pageUrl, true) . '</style>';
             },
             $html
         );
@@ -217,10 +217,10 @@ class WebsiteCloner {
         return $localPath;
     }
 
-    private function rewriteCSSUrls($css, $contextUrl) {
+    private function rewriteCSSUrls($css, $contextUrl, $isInline = false) {
         return preg_replace_callback(
             '/url\s*\(\s*["\']?([^"\')\s]+)["\']?\s*\)/i',
-            function($m) use ($contextUrl) {
+            function($m) use ($contextUrl, $isInline) {
                 $assetUrl = trim($m[1]);
                 if (strpos($assetUrl, 'data:') === 0) return $m[0];
                 $resolved = $this->resolveRelativePath($contextUrl, $assetUrl);
@@ -239,7 +239,10 @@ class WebsiteCloner {
                 } else {
                     $local = $this->downloadAsset($resolved, 'images');
                 }
-                if ($local) return 'url(../' . $local . ')';
+                if ($local) {
+                    $prefix = $isInline ? '' : '../';
+                    return 'url(' . $prefix . $local . ')';
+                }
                 return $m[0];
             },
             $css
@@ -371,9 +374,17 @@ class WebsiteCloner {
             $html
         );
 
-        // data-bg, data-background, data-src (lazy-load patterns)
+        // data-* lazy-load attributes (WordPress, RevSlider, VC, etc.)
+        $lazyAttrs = [
+            'data-bg', 'data-background', 'data-src', 'data-lazy-src',
+            'data-lazyload', 'data-lazy', 'data-image', 'data-thumb',
+            'data-vc-parallax-image', 'data-placeholder-image',
+            'data-original', 'data-full', 'data-large-file',
+            'data-medium-file', 'data-bg-url'
+        ];
+        $attrPattern = implode('|', array_map(function($a) { return preg_quote($a, '/'); }, $lazyAttrs));
         $html = preg_replace_callback(
-            '/(data-(?:bg|background|src|lazy-src|image|thumb))\s*=\s*["\']([^"\']+)["\']/i',
+            '/(' . $attrPattern . ')\s*=\s*["\']([^"\']+)["\']/i',
             function($m) use ($pageUrl) {
                 $resolved = $this->resolveRelativePath($pageUrl, $m[2]);
                 $local = $this->downloadAsset($resolved, 'images');
@@ -493,14 +504,38 @@ class WebsiteCloner {
         $checks['total_size'] = $totalSize;
         $this->log[] = "ℹ️ Gesamtgröße: " . $this->formatSize($totalSize);
 
+        // Check 8: Verify inline CSS background-images are accessible
+        $bgBroken = 0;
+        $bgTotal = 0;
+        if ($indexExists) {
+            $content = file_get_contents($this->targetDir . '/index.html');
+            preg_match_all('/background-image:\s*url\(([^)]+)\)/', $content, $bgRefs);
+            foreach ($bgRefs[1] as $ref) {
+                $ref = trim($ref, '"\'');
+                $bgTotal++;
+                if (!file_exists($this->targetDir . '/' . $ref)) {
+                    $bgBroken++;
+                }
+            }
+            unset($content);
+        }
+        $checks['bg_images_total'] = $bgTotal;
+        $checks['bg_images_broken'] = $bgBroken;
+        $this->log[] = ($bgBroken === 0 ? "✅" : "⚠️") . " CSS background-images: $bgTotal gefunden, $bgBroken fehlen";
+
+        // Generate visual check page
+        $this->generateCheckPage();
+        $this->log[] = "🔍 check.html generiert (visuelle Prüfseite)";
+
         // Overall score
         $score = 0;
-        if ($indexExists) $score += 25;
-        if ($cssCount > 0) $score += 20;
+        if ($indexExists) $score += 20;
+        if ($cssCount > 0) $score += 10;
         if ($imgCount >= 3) $score += 20;
         if ($indexSize > 10000) $score += 15;
         if ($brokenRefs < 5) $score += 10;
         if ($pageCount > 1) $score += 10;
+        if ($bgBroken === 0 && $bgTotal > 0) $score += 15;
 
         $checks['score'] = $score;
         $grade = $score >= 90 ? 'A' : ($score >= 70 ? 'B' : ($score >= 50 ? 'C' : 'D'));
@@ -657,6 +692,65 @@ if (!empty($_SESSION["gate_ok"])) {
         $html = str_replace('</head>',
             '    <meta name="robots" content="noindex, nofollow">' . "\n" . '</head>', $html);
         return $html;
+    }
+
+    private function generateCheckPage() {
+        $imgFiles = glob($this->targetDir . '/images/*');
+        $imgHtml = '';
+        $count = 0;
+        if ($imgFiles) {
+            foreach ($imgFiles as $f) {
+                $name = basename($f);
+                $size = $this->formatSize(filesize($f));
+                $count++;
+                $imgHtml .= "<div class='img-card'><img src='images/$name' onerror=\"this.parentElement.classList.add('broken')\" loading='lazy'><div class='img-info'>$name<br><small>$size</small></div></div>\n";
+            }
+        }
+
+        $pages = glob($this->targetDir . '/*.html');
+        $pageLinks = '';
+        if ($pages) {
+            foreach ($pages as $p) {
+                $name = basename($p);
+                if ($name === 'check.html') continue;
+                $size = $this->formatSize(filesize($p));
+                $pageLinks .= "<a href='$name' target='_blank' class='page-link'>$name ($size)</a>\n";
+            }
+        }
+
+        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="robots" content="noindex, nofollow">
+<title>Qualitätsprüfung</title><style>
+body{font-family:Arial,sans-serif;margin:20px;background:#f5f5f5}
+h1{color:#333}h2{color:#555;border-bottom:2px solid #007cba;padding-bottom:8px}
+.stats{display:flex;gap:15px;flex-wrap:wrap;margin:15px 0}
+.stat{background:white;padding:15px 20px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
+.stat .num{font-size:28px;font-weight:bold;color:#007cba}
+.stat .label{font-size:12px;color:#888;margin-top:4px}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:15px 0}
+.img-card{background:white;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.img-card img{width:100%;height:150px;object-fit:cover}
+.img-card.broken{border:3px solid #dc3545}
+.img-card.broken img{display:none}
+.img-card.broken::before{content:"❌ FEHLT";display:block;height:150px;line-height:150px;text-align:center;color:#dc3545;font-weight:bold;background:#fff5f5}
+.img-info{padding:6px 10px;font-size:11px;color:#666;word-break:break-all}
+.page-link{display:inline-block;background:#007cba;color:white;padding:6px 14px;border-radius:4px;text-decoration:none;margin:3px;font-size:13px}
+.page-link:hover{background:#005a87}
+</style></head><body>
+<h1>🔍 Qualitätsprüfung</h1>
+<div class="stats">
+<div class="stat"><div class="num">' . count($pages) . '</div><div class="label">Seiten</div></div>
+<div class="stat"><div class="num">' . $count . '</div><div class="label">Bilder</div></div>
+<div class="stat"><div class="num">' . count(glob($this->targetDir . '/css/*')) . '</div><div class="label">CSS</div></div>
+<div class="stat"><div class="num">' . count(glob($this->targetDir . '/fonts/*')) . '</div><div class="label">Schriften</div></div>
+<div class="stat"><div class="num">' . count(glob($this->targetDir . '/js/*')) . '</div><div class="label">JS</div></div>
+</div>
+<h2>Seiten</h2>' . $pageLinks . '
+<h2>Alle Bilder (' . $count . ')</h2>
+<p>Bilder mit rotem Rand = fehlen/kaputt. Klicken Sie auf ein Bild, um es in voller Größe zu sehen.</p>
+<div class="img-grid">' . $imgHtml . '</div>
+<script>document.querySelectorAll(".img-card img").forEach(function(img){img.addEventListener("click",function(){window.open(img.src,"_blank")})});</script>
+</body></html>';
+        file_put_contents($this->targetDir . '/check.html', $html);
     }
 
     private function formatSize($bytes) {
