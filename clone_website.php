@@ -1,8 +1,8 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-ini_set('max_execution_time', 300);
-ini_set('memory_limit', '1024M');
+ini_set('max_execution_time', 600);
+ini_set('memory_limit', '512M');
 
 class WebsiteCloner {
     private $sourceUrl;
@@ -17,8 +17,9 @@ class WebsiteCloner {
     private $maxPages;
     private $maxDepth;
     private $stats = ['pages' => 0, 'css' => 0, 'js' => 0, 'images' => 0, 'fonts' => 0, 'errors' => 0];
+    public $onProgress = null;
 
-    public function __construct($url, $targetDir, $maxPages = 30, $maxDepth = 3) {
+    public function __construct($url, $targetDir, $maxPages = 200, $maxDepth = 5) {
         $parsed = parse_url($url);
         $this->scheme = $parsed['scheme'] ?? 'https';
         $this->host = $parsed['host'] ?? '';
@@ -32,24 +33,75 @@ class WebsiteCloner {
     public function clone_site() {
         $this->log[] = "=== Website-Kopie gestartet ===";
         $this->log[] = "Quelle: " . $this->sourceUrl;
-        $this->log[] = "Max. Seiten: " . $this->maxPages . " | Max. Tiefe: " . $this->maxDepth;
+        $this->log[] = "Max. Seiten: " . $this->maxPages;
 
         foreach (['css', 'js', 'images', 'fonts'] as $d) {
             @mkdir($this->targetDir . '/' . $d, 0755, true);
         }
 
-        $this->pageQueue[] = ['url' => $this->sourceUrl, 'depth' => 0];
-        $this->pageQueue[] = ['url' => $this->sourceUrl . '/', 'depth' => 0];
+        // Phase 1: Startseite laden und ALLE internen Links sammeln
+        $this->log[] = "";
+        $this->log[] = "🔍 Phase 1: Startseite analysieren und alle internen Links finden...";
+        $this->discoverAllPages();
+        $queueSize = count($this->pageQueue);
+        $this->log[] = "📋 $queueSize Seiten zum Kopieren gefunden";
 
-        // Pass 1: Crawl all pages and download assets
-        while (!empty($this->pageQueue) && $this->stats['pages'] < $this->maxPages) {
+        // Phase 2: Download raw HTML for all pages first (minimal memory)
+        $this->log[] = "";
+        $this->log[] = "📥 Phase 2: HTML herunterladen (" . count($this->pageQueue) . " Seiten)...";
+        $pagesToProcess = [];
+        while (!empty($this->pageQueue) && count($pagesToProcess) < $this->maxPages) {
             $item = array_shift($this->pageQueue);
-            $this->crawlPage($item['url'], $item['depth']);
+            $normalized = $this->normalizePageUrl($item['url']);
+            if (isset($this->crawledPages[$normalized])) continue;
+            $this->crawledPages[$normalized] = true;
+            if (!$this->isSameSite($normalized)) continue;
+
+            $html = $this->fetchUrl($normalized);
+            if (!$html) { $html = $this->fetchUrl($normalized . '/'); }
+            if (!$html) continue;
+            $ct = $this->lastContentType ?? '';
+            if (stripos($ct, 'text/html') === false && !preg_match('/<html/i', substr($html, 0, 1000))) { unset($html); continue; }
+
+            $pageName = $this->urlToFilename($normalized);
+            file_put_contents($this->targetDir . '/' . $pageName . '.raw', $html);
+            $pagesToProcess[] = ['url' => $normalized, 'name' => $pageName, 'depth' => $item['depth']];
+            $this->stats['pages']++;
+            $this->emitProgress("⬇️ " . $this->stats['pages'] . "/" . min(count($this->pageQueue) + count($pagesToProcess), $this->maxPages) . " " . $pageName);
+            unset($html);
         }
 
-        // Pass 2: Rewrite all internal links now that all pages are known
+        // Phase 2b: Process each page (assets, CSS, images) one at a time
+        $this->log[] = "";
+        $this->log[] = "📥 Phase 2b: Assets verarbeiten (" . count($pagesToProcess) . " Seiten)...";
+        foreach ($pagesToProcess as $i => $page) {
+            $rawFile = $this->targetDir . '/' . $page['name'] . '.raw';
+            if (!file_exists($rawFile)) continue;
+            $html = file_get_contents($rawFile);
+            
+            $this->log[] = "";
+            $this->log[] = "📄 Seite " . ($i+1) . ": " . $page['name'];
+            $this->emitProgress("📄 Seite " . ($i+1) . "/" . count($pagesToProcess) . ": " . $page['name']);
+
+            $html = $this->processCSS($html, $page['url']);
+            $html = $this->processJS($html);
+            $html = $this->processImages($html, $page['url']);
+            $html = $this->processFonts($html);
+            $html = $this->processInlineAndDataStyles($html, $page['url']);
+            $html = $this->cleanupHTML($html);
+
+            file_put_contents($this->targetDir . '/' . $page['name'], $html);
+            @unlink($rawFile);
+            unset($html);
+            gc_collect_cycles();
+        }
+
+        // Phase 3: Links in allen Seiten umschreiben
+        $this->log[] = "";
+        $this->log[] = "🔗 Phase 3: Links umschreiben...";
         $this->rewriteAllPageLinks();
 
+        // Phase 4: Schutz hinzufügen
         $this->addProtection();
 
         $this->log[] = "";
@@ -73,42 +125,58 @@ class WebsiteCloner {
         ];
     }
 
-    private function crawlPage($url, $depth) {
-        $normalized = $this->normalizePageUrl($url);
-        if (isset($this->crawledPages[$normalized])) return;
-        if ($depth > $this->maxDepth) return;
-        if (!$this->isSameSite($normalized)) return;
-
-        $this->crawledPages[$normalized] = true;
-
-        $html = $this->fetchUrl($normalized);
-        if (!$html) return;
-
-        $contentType = $this->lastContentType ?? '';
-        if (stripos($contentType, 'text/html') === false && !preg_match('/<html/i', substr($html, 0, 1000))) {
-            return;
+    private function discoverAllPages() {
+        $startUrl = $this->sourceUrl;
+        $html = $this->fetchUrl($startUrl);
+        if (!$html) {
+            $html = $this->fetchUrl($startUrl . '/');
+            if (!$html) return;
         }
 
-        $this->stats['pages']++;
-        $pageName = $this->urlToFilename($normalized);
-        $this->log[] = "";
-        $this->log[] = "📄 Seite " . $this->stats['pages'] . ": " . $pageName . " (Tiefe $depth)";
+        $discovered = [];
+        $discovered[$this->normalizePageUrl($startUrl)] = true;
 
-        $html = $this->processCSS($html, $normalized);
-        $html = $this->processJS($html);
-        $html = $this->processImages($html, $normalized);
-        $html = $this->processFonts($html);
-        $html = $this->processInlineAndDataStyles($html, $normalized);
+        $this->extractInternalLinks($html, $startUrl, $discovered);
 
-        if ($depth < $this->maxDepth) {
-            $this->discoverLinks($html, $normalized, $depth);
+        // Also scan from discovered pages (depth 1) for more links
+        $firstPassUrls = array_keys($discovered);
+        foreach ($firstPassUrls as $url) {
+            if ($url === $this->normalizePageUrl($startUrl)) continue;
+            if (count($discovered) >= $this->maxPages) break;
+
+            $pageHtml = $this->fetchUrl($url);
+            if (!$pageHtml) continue;
+            if (stripos($this->lastContentType ?? '', 'text/html') === false && !preg_match('/<html/i', substr($pageHtml, 0, 1000))) continue;
+
+            $this->extractInternalLinks($pageHtml, $url, $discovered);
+            unset($pageHtml);
         }
 
-        $html = $this->cleanupHTML($html);
+        // Build queue: startpage first, then all discovered
+        $this->pageQueue = [['url' => $startUrl, 'depth' => 0]];
+        foreach ($discovered as $url => $true) {
+            if ($url === $this->normalizePageUrl($startUrl)) continue;
+            $this->pageQueue[] = ['url' => $url, 'depth' => 1];
+        }
+    }
 
-        file_put_contents($this->targetDir . '/' . $pageName, $html);
-        unset($html);
-        gc_collect_cycles();
+    private function extractInternalLinks($html, $pageUrl, &$discovered) {
+        preg_match_all('/href=["\']([^"\'#]+)["\']/', $html, $matches);
+        foreach ($matches[1] as $href) {
+            $resolved = $this->resolveRelativePath($pageUrl, $href);
+            if (!$resolved) continue;
+            $resolved = preg_replace('/#.*$/', '', $resolved);
+            if (empty($resolved)) continue;
+            if (!$this->isSameSite($resolved)) continue;
+
+            $ext = strtolower(pathinfo(parse_url($resolved, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+            if (in_array($ext, ['pdf','zip','doc','docx','xls','xlsx','png','jpg','jpeg','gif','svg','css','js','ico','woff','woff2','ttf','eot','mp4','mp3'])) continue;
+
+            $norm = $this->normalizePageUrl($resolved);
+            if (!isset($discovered[$norm]) && count($discovered) < $this->maxPages) {
+                $discovered[$norm] = true;
+            }
+        }
     }
 
     private function discoverLinks(&$html, $pageUrl, $depth) {
@@ -543,12 +611,22 @@ class WebsiteCloner {
             $totalBgImages += $bgTotal;
             $totalBgBroken += $bgBroken;
 
-            $icon = ($imgBroken === 0 && $bgBroken <= 2) ? "✅" : "⚠️";
+            // Internal navigation links that point to non-existent local pages
+            $linksBroken = 0;
+            $linksTotal = 0;
+            preg_match_all('/<a[^>]*href=["\']([^"\'#]+\.html)["\']/', $content, $linkRefs);
+            foreach ($linkRefs[1] as $ref) {
+                $linksTotal++;
+                if (!file_exists($this->targetDir . '/' . $ref)) $linksBroken++;
+            }
+
+            $icon = ($imgBroken === 0 && $bgBroken <= 2 && $linksBroken === 0) ? "✅" : "⚠️";
             $detail = "$icon $pageName";
             $issues = [];
             if ($pageBroken > 0) $issues[] = "$pageBroken fehlende Refs";
             if ($imgBroken > 0) $issues[] = "$imgBroken fehlende Bilder";
             if ($bgBroken > 0) $issues[] = "$bgBroken fehlende BG-Bilder";
+            if ($linksBroken > 0) $issues[] = "$linksBroken/$linksTotal tote Seiten-Links";
             if (!empty($issues)) $detail .= " (" . implode(', ', $issues) . ")";
             $this->log[] = "  " . $detail;
 
@@ -560,7 +638,9 @@ class WebsiteCloner {
                 'broken_imgs' => $imgBroken,
                 'bg_total' => $bgTotal,
                 'bg_broken' => $bgBroken,
-                'ok' => ($imgBroken === 0 && $bgBroken <= 2)
+                'links_total' => $linksTotal,
+                'links_broken' => $linksBroken,
+                'ok' => ($imgBroken === 0 && $bgBroken <= 2 && $linksBroken === 0)
             ];
 
             unset($content);
@@ -783,10 +863,12 @@ if (!empty($_SESSION["gate_ok"])) {
         // Build page report table
         $pageReport = '';
         if (!empty($pageDetails)) {
-            $pageReport = '<table class="report-table"><tr><th>Seite</th><th>Größe</th><th>Fehlende Refs</th><th>Fehlende Bilder</th><th>BG-Bilder</th><th>Status</th></tr>';
+            $pageReport = '<table class="report-table"><tr><th>Seite</th><th>Größe</th><th>Fehlende Refs</th><th>Fehlende Bilder</th><th>BG-Bilder</th><th>Seiten-Links</th><th>Status</th></tr>';
             foreach ($pageDetails as $pd) {
                 $status = $pd['ok'] ? '<span style="color:#28a745">✅ OK</span>' : '<span style="color:#dc3545">⚠️ Probleme</span>';
                 $bgText = $pd['bg_total'] > 0 ? ($pd['bg_broken'] . '/' . $pd['bg_total'] . ' fehlen') : '-';
+                $linksText = ($pd['links_total'] ?? 0) > 0 ? (($pd['links_broken'] ?? 0) . '/' . ($pd['links_total'] ?? 0) . ' fehlen') : '-';
+                $linksStyle = ($pd['links_broken'] ?? 0) > 0 ? ' style="color:#dc3545;font-weight:bold"' : '';
                 $brokenDetail = '';
                 if (!empty($pd['broken_refs_list'])) {
                     $brokenDetail = '<br><small style="color:#999">' . implode(', ', array_map('htmlspecialchars', $pd['broken_refs_list'])) . '</small>';
@@ -796,6 +878,7 @@ if (!empty($_SESSION["gate_ok"])) {
                     . '<td>' . $pd['broken_refs'] . $brokenDetail . '</td>'
                     . '<td>' . $pd['broken_imgs'] . '</td>'
                     . '<td>' . $bgText . '</td>'
+                    . '<td' . $linksStyle . '>' . $linksText . '</td>'
                     . '<td>' . $status . '</td></tr>';
             }
             $pageReport .= '</table>';
@@ -865,6 +948,12 @@ document.querySelectorAll(".img-card img").forEach(function(img){img.addEventLis
         file_put_contents($this->targetDir . '/check.html', $html);
     }
 
+    private function emitProgress($msg) {
+        if ($this->onProgress && is_callable($this->onProgress)) {
+            ($this->onProgress)($msg);
+        }
+    }
+
     private function formatSize($bytes) {
         if ($bytes < 1024) return $bytes . ' B';
         if ($bytes < 1024 * 1024) return round($bytes / 1024, 1) . ' KB';
@@ -889,21 +978,26 @@ document.querySelectorAll(".img-card img").forEach(function(img){img.addEventLis
     }
 }
 
-// API Endpoint
+// API Endpoint - Streamed output to avoid timeouts
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clone_url'])) {
-    header('Content-Type: application/json; charset=utf-8');
+    // Disable output buffering for streaming
+    while (ob_get_level()) ob_end_flush();
+    header('Content-Type: text/event-stream; charset=utf-8');
+    header('Cache-Control: no-cache');
+    header('X-Accel-Buffering: no');
 
     $url = trim($_POST['clone_url']);
     if (empty($url)) {
-        echo json_encode(['success' => false, 'log' => ['Keine URL angegeben.']]);
+        echo "data: " . json_encode(['type' => 'error', 'message' => 'Keine URL angegeben.']) . "\n\n";
+        flush();
         exit;
     }
     if (!preg_match('#^https?://#', $url)) $url = 'https://' . $url;
 
-    $maxPages = intval($_POST['max_pages'] ?? 30);
-    $maxDepth = intval($_POST['max_depth'] ?? 3);
-    $maxPages = max(1, min(100, $maxPages));
-    $maxDepth = max(1, min(5, $maxDepth));
+    $maxPages = intval($_POST['max_pages'] ?? 200);
+    $maxDepth = intval($_POST['max_depth'] ?? 5);
+    $maxPages = max(1, min(500, $maxPages));
+    $maxDepth = max(1, min(10, $maxDepth));
 
     $dirName = $_POST['dir_name'] ?? '';
     $dirName = preg_replace('/[^a-zA-Z0-9_-]/', '', $dirName);
@@ -916,10 +1010,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clone_url'])) {
     }
 
     $cloner = new WebsiteCloner($url, $targetDir, $maxPages, $maxDepth);
+
+    // Progress callback
+    $cloner->onProgress = function($msg) {
+        echo "data: " . json_encode(['type' => 'progress', 'message' => $msg]) . "\n\n";
+        flush();
+    };
+
     $result = $cloner->clone_site();
     $result['directory'] = $dirName;
 
-    echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    echo "data: " . json_encode(['type' => 'done', 'result' => $result]) . "\n\n";
+    flush();
+    exit;
+}
+
+// Status check endpoint
+if (isset($_GET['status']) && isset($_GET['dir'])) {
+    header('Content-Type: application/json');
+    $dir = preg_replace('/[^a-zA-Z0-9_-]/', '', $_GET['dir']);
+    $statusFile = __DIR__ . '/' . $dir . '/.clone_status.json';
+    if (file_exists($statusFile)) {
+        echo file_get_contents($statusFile);
+    } else {
+        echo json_encode(['status' => 'unknown']);
+    }
     exit;
 }
 ?>

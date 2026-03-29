@@ -982,11 +982,11 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
                     </div>
                     <div class="form-group" style="width: 140px;">
                         <label for="clone_pages">Max. Seiten:</label>
-                        <input type="number" id="clone_pages" value="30" min="1" max="100" style="padding: 10px;">
+                        <input type="number" id="clone_pages" value="200" min="1" max="500" style="padding: 10px;">
                     </div>
                     <div class="form-group" style="width: 120px;">
                         <label for="clone_depth">Max. Tiefe:</label>
-                        <input type="number" id="clone_depth" value="3" min="1" max="5" style="padding: 10px;">
+                        <input type="number" id="clone_depth" value="5" min="1" max="10" style="padding: 10px;">
                     </div>
                 </div>
                 <button type="button" id="clone_btn" onclick="cloneWebsite()" style="background: #6f42c1; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
@@ -1421,59 +1421,95 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
             formData.append('max_depth', document.getElementById('clone_depth').value);
             formData.append('dir_name', document.getElementById('clone_dir').value.trim());
             
+            logDiv.style.display = 'block';
+            logDiv.innerHTML = '<strong>Live-Log:</strong><br>';
+            
             fetch('clone_website.php', { method: 'POST', body: formData })
-                .then(function(resp) { return resp.json(); })
-                .then(function(data) {
-                    spinnerDiv.style.display = 'none';
-                    resultDiv.style.display = 'block';
+                .then(function(resp) {
+                    var reader = resp.body.getReader();
+                    var decoder = new TextDecoder();
+                    var buffer = '';
                     
-                    if (data.success) {
-                        var q = data.quality || {};
-                        var gradeColor = {'A':'#28a745','B':'#17a2b8','C':'#ffc107','D':'#dc3545'}[q.grade] || '#666';
-                        
-                        resultDiv.style.background = '#d4edda';
-                        resultDiv.style.border = '1px solid #c3e6cb';
-                        resultDiv.style.color = '#155724';
-                        resultDiv.innerHTML = 
-                            '<div style="display:flex;justify-content:space-between;align-items:start;">' +
-                            '<div><strong>✅ Website erfolgreich kopiert!</strong><br>' +
-                            'Verzeichnis: <strong>' + data.directory + '</strong><br>' +
-                            'Seiten: ' + (data.stats ? data.stats.pages : '?') + 
-                            ' | CSS: ' + (data.stats ? data.stats.css : '?') +
-                            ' | Bilder: ' + (data.stats ? data.stats.images : '?') +
-                            ' | Schriften: ' + (data.stats ? data.stats.fonts : '?') +
-                            ' | Fehler: ' + (data.stats ? data.stats.errors : '?') + '</div>' +
-                            '<div style="text-align:center;background:' + gradeColor + ';color:white;padding:8px 16px;border-radius:8px;font-size:24px;font-weight:bold;min-width:50px;">Note ' + (q.grade||'?') + '<br><span style="font-size:12px;">' + (q.score||0) + '/100</span></div>' +
-                            '</div><br>' +
-                            '<a href="' + data.directory + '/gate.php" target="_blank" style="background:#28a745;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;margin-right:10px;">🔒 Kopie öffnen</a>' +
-                            '<a href="' + data.directory + '/index.html" target="_blank" style="background:#17a2b8;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;">📄 Direkt (ohne PW)</a>';
-                    } else {
-                        resultDiv.style.background = '#f8d7da';
-                        resultDiv.style.border = '1px solid #f5c6cb';
-                        resultDiv.style.color = '#721c24';
-                        resultDiv.innerHTML = '<strong>❌ Fehler beim Kopieren!</strong>';
+                    function processChunk() {
+                        return reader.read().then(function(result) {
+                            if (result.done) { finishClone(); return; }
+                            buffer += decoder.decode(result.value, {stream: true});
+                            var lines = buffer.split('\n');
+                            buffer = lines.pop();
+                            
+                            lines.forEach(function(line) {
+                                if (line.startsWith('data: ')) {
+                                    try {
+                                        var data = JSON.parse(line.substring(6));
+                                        if (data.type === 'progress') {
+                                            logDiv.innerHTML += data.message + '<br>';
+                                            logDiv.scrollTop = logDiv.scrollHeight;
+                                        } else if (data.type === 'done') {
+                                            showResult(data.result);
+                                        } else if (data.type === 'error') {
+                                            showError(data.message);
+                                        }
+                                    } catch(e) {}
+                                }
+                            });
+                            return processChunk();
+                        });
                     }
-                    
-                    if (data.log && data.log.length > 0) {
-                        logDiv.style.display = 'block';
-                        logDiv.innerHTML = '<strong>Log:</strong><br>' + data.log.join('<br>');
-                    }
-                    
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.textContent = '🌐 Website kopieren';
+                    return processChunk();
                 })
-                .catch(function(err) {
-                    spinnerDiv.style.display = 'none';
-                    resultDiv.style.display = 'block';
-                    resultDiv.style.background = '#f8d7da';
-                    resultDiv.style.border = '1px solid #f5c6cb';
-                    resultDiv.style.color = '#721c24';
-                    resultDiv.innerHTML = '<strong>❌ Fehler:</strong> ' + err.message;
-                    btn.disabled = false;
-                    btn.style.opacity = '1';
-                    btn.textContent = '🌐 Website kopieren';
-                });
+                .catch(function(err) { showError(err.message); });
+            
+            function showResult(data) {
+                spinnerDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+                
+                if (data && data.success) {
+                    var q = data.quality || {};
+                    var gradeColor = {'A':'#28a745','B':'#17a2b8','C':'#ffc107','D':'#dc3545'}[q.grade] || '#666';
+                    
+                    resultDiv.style.background = '#d4edda';
+                    resultDiv.style.border = '1px solid #c3e6cb';
+                    resultDiv.style.color = '#155724';
+                    resultDiv.innerHTML = 
+                        '<div style="display:flex;justify-content:space-between;align-items:start;">' +
+                        '<div><strong>✅ Website erfolgreich kopiert!</strong><br>' +
+                        'Verzeichnis: <strong>' + data.directory + '</strong><br>' +
+                        'Seiten: ' + (data.stats ? data.stats.pages : '?') + 
+                        ' | Bilder: ' + (data.stats ? data.stats.images : '?') +
+                        ' | Schriften: ' + (data.stats ? data.stats.fonts : '?') +
+                        ' | Fehler: ' + (data.stats ? data.stats.errors : '?') + '</div>' +
+                        '<div style="text-align:center;background:' + gradeColor + ';color:white;padding:8px 16px;border-radius:8px;font-size:24px;font-weight:bold;min-width:50px;">Note ' + (q.grade||'?') + '<br><span style="font-size:12px;">' + (q.score||0) + '/100</span></div>' +
+                        '</div><br>' +
+                        '<a href="' + data.directory + '/check.html" target="_blank" style="background:#6f42c1;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;margin-right:10px;">🔍 Qualitätsprüfung</a>' +
+                        '<a href="' + data.directory + '/gate.php" target="_blank" style="background:#28a745;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;margin-right:10px;">🔒 Kopie öffnen</a>' +
+                        '<a href="' + data.directory + '/index.html" target="_blank" style="background:#17a2b8;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;">📄 Direkt</a>';
+                    
+                    if (data.log) {
+                        logDiv.innerHTML = '<strong>Vollständiger Log:</strong><br>' + data.log.join('<br>');
+                    }
+                }
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = '🌐 Website kopieren';
+            }
+            
+            function showError(msg) {
+                spinnerDiv.style.display = 'none';
+                resultDiv.style.display = 'block';
+                resultDiv.style.background = '#f8d7da';
+                resultDiv.style.border = '1px solid #f5c6cb';
+                resultDiv.style.color = '#721c24';
+                resultDiv.innerHTML = '<strong>❌ Fehler:</strong> ' + msg;
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = '🌐 Website kopieren';
+            }
+            
+            function finishClone() {
+                if (resultDiv.style.display === 'none') {
+                    showError('Verbindung unerwartet beendet. Prüfen Sie den Server-Log.');
+                }
+            }
         }
 
         function addProject() {
