@@ -975,6 +975,20 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
                     <label for="clone_url">Website-URL:</label>
                     <input type="text" id="clone_url" placeholder="https://www.beispiel.de/" style="font-size: 16px; padding: 12px;">
                 </div>
+                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="clone_dir">Verzeichnisname (optional):</label>
+                        <input type="text" id="clone_dir" placeholder="z.B. testseite2 (leer = automatisch)" style="padding: 10px;">
+                    </div>
+                    <div class="form-group" style="width: 140px;">
+                        <label for="clone_pages">Max. Seiten:</label>
+                        <input type="number" id="clone_pages" value="30" min="1" max="100" style="padding: 10px;">
+                    </div>
+                    <div class="form-group" style="width: 120px;">
+                        <label for="clone_depth">Max. Tiefe:</label>
+                        <input type="number" id="clone_depth" value="3" min="1" max="5" style="padding: 10px;">
+                    </div>
+                </div>
                 <button type="button" id="clone_btn" onclick="cloneWebsite()" style="background: #6f42c1; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;">
                     🌐 Website kopieren
                 </button>
@@ -1403,6 +1417,9 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
             
             var formData = new FormData();
             formData.append('clone_url', url);
+            formData.append('max_pages', document.getElementById('clone_pages').value);
+            formData.append('max_depth', document.getElementById('clone_depth').value);
+            formData.append('dir_name', document.getElementById('clone_dir').value.trim());
             
             fetch('clone_website.php', { method: 'POST', body: formData })
                 .then(function(resp) { return resp.json(); })
@@ -1411,13 +1428,25 @@ if (isset($_POST['release_preview']) && $_SESSION['admin_logged_in']) {
                     resultDiv.style.display = 'block';
                     
                     if (data.success) {
+                        var q = data.quality || {};
+                        var gradeColor = {'A':'#28a745','B':'#17a2b8','C':'#ffc107','D':'#dc3545'}[q.grade] || '#666';
+                        
                         resultDiv.style.background = '#d4edda';
                         resultDiv.style.border = '1px solid #c3e6cb';
                         resultDiv.style.color = '#155724';
-                        resultDiv.innerHTML = '<strong>✅ Website erfolgreich kopiert!</strong><br>' +
+                        resultDiv.innerHTML = 
+                            '<div style="display:flex;justify-content:space-between;align-items:start;">' +
+                            '<div><strong>✅ Website erfolgreich kopiert!</strong><br>' +
                             'Verzeichnis: <strong>' + data.directory + '</strong><br>' +
-                            'Dateien: ' + data.files + '<br><br>' +
-                            '<a href="' + data.directory + '/index.html" target="_blank" style="background: #28a745; color: white; padding: 8px 16px; border-radius: 5px; text-decoration: none;">🌐 Kopie öffnen</a>';
+                            'Seiten: ' + (data.stats ? data.stats.pages : '?') + 
+                            ' | CSS: ' + (data.stats ? data.stats.css : '?') +
+                            ' | Bilder: ' + (data.stats ? data.stats.images : '?') +
+                            ' | Schriften: ' + (data.stats ? data.stats.fonts : '?') +
+                            ' | Fehler: ' + (data.stats ? data.stats.errors : '?') + '</div>' +
+                            '<div style="text-align:center;background:' + gradeColor + ';color:white;padding:8px 16px;border-radius:8px;font-size:24px;font-weight:bold;min-width:50px;">Note ' + (q.grade||'?') + '<br><span style="font-size:12px;">' + (q.score||0) + '/100</span></div>' +
+                            '</div><br>' +
+                            '<a href="' + data.directory + '/gate.php" target="_blank" style="background:#28a745;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;margin-right:10px;">🔒 Kopie öffnen</a>' +
+                            '<a href="' + data.directory + '/index.html" target="_blank" style="background:#17a2b8;color:white;padding:8px 16px;border-radius:5px;text-decoration:none;">📄 Direkt (ohne PW)</a>';
                     } else {
                         resultDiv.style.background = '#f8d7da';
                         resultDiv.style.border = '1px solid #f5c6cb';
