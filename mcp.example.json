@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "ftp-webspace": {
+      "command": "node",
+      "args": ["/absoluter/pfad/zum/repo/build/index.js"],
+      "env": {
+        "FTP_HOST": "ftp.example.com",
+        "FTP_PORT": "21",
+        "FTP_USER": "benutzer",
+        "FTP_PASSWORD": "passwort",
+        "FTP_SECURE": "false"
+      }
+    }
+  }
+}
