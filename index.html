@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Realmatics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #14201a;
+      --foam: #f3f7f2;
+      --moss: #2f6b4f;
+      --leaf: #7cb389;
+      --sand: #d8c3a5;
+      --glow: rgba(124, 179, 137, 0.35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      color: var(--foam);
+      font-family: "Source Sans 3", sans-serif;
+      background:
+        radial-gradient(1200px 700px at 10% -10%, rgba(124, 179, 137, 0.28), transparent 55%),
+        radial-gradient(900px 600px at 100% 0%, rgba(216, 195, 165, 0.22), transparent 50%),
+        linear-gradient(160deg, #0d1712 0%, #1a2c22 45%, #24362c 100%);
+      overflow-x: hidden;
+    }
+
+    .grain {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.08;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      animation: drift 18s linear infinite;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(-2%, -2%, 0); }
+    }
+
+    header {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 6vw;
+    }
+
+    .brand {
+      font-family: Fraunces, serif;
+      font-weight: 700;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      letter-spacing: 0.02em;
+    }
+
+    .brand span {
+      color: var(--leaf);
+    }
+
+    nav a {
+      color: rgba(243, 247, 242, 0.78);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-bottom: 1px solid transparent;
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    nav a:hover {
+      color: var(--foam);
+      border-color: var(--leaf);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      min-height: calc(100vh - 5rem);
+      display: grid;
+      place-items: center;
+      padding: 2rem 6vw 4rem;
+    }
+
+    .hero {
+      width: min(720px, 100%);
+      animation: rise 0.9s ease-out both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1 {
+      font-family: Fraunces, serif;
+      font-size: clamp(2.6rem, 8vw, 5rem);
+      line-height: 0.95;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .hero p {
+      max-width: 34ch;
+      font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+      line-height: 1.55;
+      color: rgba(243, 247, 242, 0.84);
+      margin-bottom: 1.75rem;
+      animation: rise 1s ease-out 0.12s both;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.85rem 1.25rem;
+      background: var(--moss);
+      color: var(--foam);
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 0.4rem;
+      box-shadow: 0 12px 30px rgba(47, 107, 79, 0.35);
+      transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      animation: rise 1.05s ease-out 0.22s both;
+    }
+
+    .cta:hover {
+      background: #38845f;
+      transform: translateY(-2px);
+      box-shadow: 0 16px 34px rgba(47, 107, 79, 0.45);
+    }
+
+    .cta::after {
+      content: "→";
+      transition: transform 0.2s ease;
+    }
+
+    .cta:hover::after {
+      transform: translateX(3px);
+    }
+
+    .orb {
+      position: absolute;
+      width: min(42vw, 340px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, var(--leaf), transparent 62%);
+      filter: blur(8px);
+      opacity: 0.45;
+      right: 8vw;
+      top: 22vh;
+      animation: pulse 6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.08); opacity: 0.55; }
+    }
+
+    @media (max-width: 640px) {
+      .orb { top: 12vh; right: -10vw; opacity: 0.3; }
+      header { padding-inline: 1.25rem; }
+      main { padding-inline: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="orb" aria-hidden="true"></div>
+  <header>
+    <div class="brand">Realm<span>atics</span></div>
+    <nav><a href="#start">Start</a></nav>
+  </header>
+  <main id="start">
+    <section class="hero">
+      <h1>Klar. Ruhig. Online.</h1>
+      <p>Eine schlanke Startseite für dein Webspace — frisch aufgeschaltet und bereit für den nächsten Schritt.</p>
+      <a class="cta" href="mailto:hello@realmatics.example">Nachricht senden</a>
+    </section>
+  </main>
+</body>
+</html>
