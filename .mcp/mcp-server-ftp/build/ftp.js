@@ -264,41 +264,81 @@ export async function downloadFile(creds, remotePath, { retries = 3 } = {}) {
   }
 }
 
-export async function uploadFile(creds, remotePath, content, encoding = "utf8", { retries = 3 } = {}) {
-  const netrc = writeNetrc(creds);
-  const tmp = path.join(os.tmpdir(), `ftp-up-${randomUUID()}`);
-  const buf = Buffer.from(content, encoding);
-  fs.writeFileSync(tmp, buf);
-  let lastErr = null;
+function parsePasv(pasvText) {
+  const m = /\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/.exec(pasvText);
+  if (!m) throw new Error(`Bad PASV response: ${pasvText.trim()}`);
+  return {
+    host: `${m[1]}.${m[2]}.${m[3]}.${m[4]}`,
+    port: Number(m[5]) * 256 + Number(m[6]),
+  };
+}
+
+async function uploadOnceRaw(creds, remotePath, buf) {
+  const ftp = new FtpControl(creds);
+  await ftp.connect();
+  let data = null;
   try {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      const result = runCurl([
-        "-sS",
-        "--ftp-pret",
-        "--connect-timeout",
-        "15",
-        "--max-time",
-        "35",
-        "--netrc-file",
-        netrc,
-        "-T",
-        tmp,
-        remoteUrl(creds, remotePath),
-      ]);
-      // Even on curl timeout Pure-FTPd may create a 0-byte file; verify SIZE.
-      const size = await remoteSize(creds, remotePath);
-      if (size === buf.length) return true;
-      lastErr = new Error(
-        ((result.stderr || `curl upload failed (${result.status})`).trim() ||
-          `upload size mismatch got=${size} expected=${buf.length}`) +
-          ` (attempt ${attempt}/${retries})`,
-      );
+    // Working Pure-FTPd order from this network:
+    // PRET STOR -> PASV -> open data socket -> TYPE I -> STOR -> send bytes
+    await ftp.send(`PRET STOR ${remotePath}`);
+    const pasv = await ftp.send("PASV");
+    const target = parsePasv(pasv);
+    data = await connectTcp(target.host, target.port, 15000);
+    await ftp.send("TYPE I");
+    const stor = await ftp.send(`STOR ${remotePath}`, 20000);
+    if (!(stor.startsWith("150") || stor.startsWith("125"))) {
+      throw new Error(stor.trim());
     }
-    throw lastErr;
+    await new Promise((resolve, reject) => {
+      data.end(buf, (err) => (err ? reject(err) : resolve()));
+    });
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("data socket close timeout")), 20000);
+      data.once("close", () => {
+        clearTimeout(t);
+        resolve();
+      });
+      data.once("error", reject);
+    });
+    // 226 / transfer-complete reply arrives after the data connection closes.
+    const final = await readMultiline(ftp.socket, 30000);
+    if (!(final.startsWith("226") || final.startsWith("250"))) {
+      throw new Error(final.trim());
+    }
   } finally {
-    fs.rmSync(netrc, { force: true });
-    fs.rmSync(tmp, { force: true });
+    try {
+      data?.destroy();
+    } catch {
+      // ignore
+    }
+    try {
+      await ftp.close();
+    } catch {
+      // ignore
+    }
   }
+  const size = await remoteSize(creds, remotePath);
+  if (size !== buf.length) {
+    throw new Error(`upload size mismatch got=${size} expected=${buf.length}`);
+  }
+  return true;
+}
+
+export async function uploadFile(creds, remotePath, content, encoding = "utf8", { retries = 6 } = {}) {
+  const buf = Buffer.from(content, encoding);
+  let lastErr = null;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await uploadOnceRaw(creds, remotePath, buf);
+      return true;
+    } catch (error) {
+      lastErr = new Error(
+        `${error instanceof Error ? error.message : String(error)} (attempt ${attempt}/${retries})`,
+      );
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+  throw lastErr;
 }
 
 export async function deleteFile(creds, remotePath) {
