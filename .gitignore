@@ -1,0 +1,6 @@
+# Dependencies are installed on MCP start if missing
+.mcp/mcp-server-ftp/node_modules/
+
+# Local FTP netrc / temp
+*.netrc
+.tmp/

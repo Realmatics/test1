@@ -1,0 +1,22 @@
+{
+  "name": "ftp-webspace-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server for Pure-FTPd webspace access (PRET-aware, credential repair)",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "ftp-webspace-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "start": "node build/index.js",
+    "ftp": "node ../../scripts/ftp.mjs"
+  },
+  "engines": {
+    "node": ">=18.14.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.22.4"
+  }
+}
