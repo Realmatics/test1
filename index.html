@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Realmatics — Decision Tools</title>
+  <meta name="description" content="Decision Brief, Offer Score und Change Impact Check — spezialisierte Entscheidungstools statt generischem Chat." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --foam: #f3f7f2;
+      --moss: #2f6b4f;
+      --leaf: #7cb389;
+      --sand: #d8c3a5;
+      --muted: rgba(243, 247, 242, 0.78);
+      --line: rgba(243, 247, 242, 0.14);
+      --panel: rgba(255, 255, 255, 0.03);
+      --pad: clamp(1.25rem, 5vw, 4rem);
+      --max: 52rem;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      width: 100%;
+      overflow-x: clip;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      width: 100%;
+      min-height: 100vh;
+      overflow-x: clip;
+      color: var(--foam);
+      font-family: "Source Sans 3", sans-serif;
+      background:
+        radial-gradient(90rem 45rem at 8% -8%, rgba(124, 179, 137, 0.26), transparent 55%),
+        radial-gradient(70rem 40rem at 100% 0%, rgba(216, 195, 165, 0.18), transparent 50%),
+        linear-gradient(160deg, #0d1712 0%, #1a2c22 45%, #24362c 100%);
+    }
+
+    .shell {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: clip;
+    }
+
+    .grain {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.07;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      animation: grainPulse 10s ease-in-out infinite;
+    }
+
+    .orb {
+      position: absolute;
+      width: min(28vw, 18rem);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      right: max(1rem, 4vw);
+      top: 16vh;
+      background: radial-gradient(circle at 30% 30%, var(--leaf), transparent 62%);
+      filter: blur(10px);
+      opacity: 0.4;
+      pointer-events: none;
+      animation: pulse 6s ease-in-out infinite;
+    }
+
+    @keyframes grainPulse {
+      0%, 100% { opacity: 0.05; }
+      50% { opacity: 0.09; }
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.35; }
+      50% { transform: scale(1.06); opacity: 0.5; }
+    }
+
+    header,
+    .hero,
+    section,
+    footer {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      padding-inline: var(--pad);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-block: 1.25rem;
+    }
+
+    .brand {
+      font-family: Fraunces, serif;
+      font-weight: 700;
+      font-size: clamp(1.55rem, 2.8vw, 2.1rem);
+      letter-spacing: 0.02em;
+    }
+
+    .brand span { color: var(--leaf); }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.9rem 1.15rem;
+    }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-bottom: 1px solid transparent;
+      transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    nav a:hover {
+      color: var(--foam);
+      border-color: var(--leaf);
+    }
+
+    .wrap {
+      width: min(100%, var(--max));
+      margin-inline: auto;
+    }
+
+    .hero {
+      min-height: calc(100svh - 4.5rem);
+      display: grid;
+      align-items: center;
+      padding-block: 2.5rem 3.5rem;
+    }
+
+    .hero .wrap { animation: rise 0.85s ease-out both; }
+
+    h1 {
+      font-family: Fraunces, serif;
+      font-size: clamp(2.3rem, 6.5vw, 4.1rem);
+      line-height: 1;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      max-width: 13ch;
+      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .lede {
+      max-width: 38ch;
+      font-size: clamp(1.05rem, 2.2vw, 1.22rem);
+      line-height: 1.55;
+      color: var(--muted);
+      margin-bottom: 1.7rem;
+      animation: rise 0.95s ease-out 0.1s both;
+    }
+
+    .cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.85rem 1.25rem;
+      background: var(--moss);
+      color: var(--foam);
+      text-decoration: none;
+      font-weight: 600;
+      border-radius: 0.4rem;
+      box-shadow: 0 12px 30px rgba(47, 107, 79, 0.35);
+      transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+      animation: rise 1s ease-out 0.18s both;
+    }
+
+    .cta:hover {
+      background: #38845f;
+      transform: translateY(-2px);
+      box-shadow: 0 16px 34px rgba(47, 107, 79, 0.45);
+    }
+
+    .cta::after {
+      content: "→";
+      transition: transform 0.2s ease;
+    }
+
+    .cta:hover::after { transform: translateX(3px); }
+
+    section {
+      padding-block: 0 4.5rem;
+    }
+
+    section h2 {
+      font-family: Fraunces, serif;
+      font-size: clamp(1.55rem, 3.6vw, 2.15rem);
+      margin-bottom: 0.55rem;
+    }
+
+    .section-intro {
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 44ch;
+      margin-bottom: 1.75rem;
+    }
+
+    .stack { border-top: 1px solid var(--line); }
+
+    .item {
+      display: grid;
+      grid-template-columns: 7rem 1fr;
+      gap: 0.75rem 1.25rem;
+      padding: 1.25rem 0;
+      border-bottom: 1px solid var(--line);
+      animation: rise 0.75s ease-out both;
+    }
+
+    .item:nth-child(1) { animation-delay: 0.05s; }
+    .item:nth-child(2) { animation-delay: 0.12s; }
+    .item:nth-child(3) { animation-delay: 0.19s; }
+
+    .tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--sand);
+      padding-top: 0.3rem;
+    }
+
+    .item h3 {
+      font-family: Fraunces, serif;
+      font-size: 1.28rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .item p,
+    .diff p {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .diff-points {
+      display: grid;
+      gap: 0.9rem;
+      margin-top: 1.25rem;
+    }
+
+    .diff-points p {
+      padding-left: 1rem;
+      border-left: 2px solid var(--leaf);
+      max-width: 48ch;
+    }
+
+    .pricing-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+
+    .pricing-table th,
+    .pricing-table td {
+      text-align: left;
+      padding: 0.95rem 0.75rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    .pricing-table th {
+      font-family: Fraunces, serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .pricing-table td:first-child,
+    .pricing-table th:first-child {
+      padding-left: 0;
+    }
+
+    .pricing-table .price {
+      color: var(--leaf);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pricing-table .note {
+      display: block;
+      margin-top: 0.35rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      font-weight: 400;
+    }
+
+    .trial {
+      margin-top: 1.25rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    footer {
+      padding-block: 0 2.25rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 720px) {
+      .item { grid-template-columns: 1fr; gap: 0.25rem; }
+      .pricing-table,
+      .pricing-table thead,
+      .pricing-table tbody,
+      .pricing-table th,
+      .pricing-table td,
+      .pricing-table tr {
+        display: block;
+        width: 100%;
+      }
+      .pricing-table thead { display: none; }
+      .pricing-table tr {
+        padding: 1rem 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .pricing-table td {
+        border: 0;
+        padding: 0.2rem 0;
+      }
+      .pricing-table td::before {
+        content: attr(data-label);
+        display: block;
+        font-size: 0.72rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--sand);
+        margin-bottom: 0.15rem;
+      }
+      h1 { max-width: none; }
+      .orb { width: min(42vw, 12rem); top: 12vh; opacity: 0.28; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="grain" aria-hidden="true"></div>
+    <div class="orb" aria-hidden="true"></div>
+
+    <header>
+      <div class="brand">Real<span>matics</span></div>
+      <nav>
+        <a href="#start">Start</a>
+        <a href="#tools">Tools</a>
+        <a href="#warum">Warum</a>
+        <a href="#preise">Preise</a>
+      </nav>
+    </header>
+
+    <section class="hero" id="start">
+      <div class="wrap">
+        <h1>Werkzeuge für klare Entscheidungen.</h1>
+        <p class="lede">Nicht irgendein Chat — ein fester Ablauf für Optionen, Risiken und den nächsten Schritt.</p>
+        <a class="cta" href="mailto:hello@realmatics.example?subject=Decision%20Brief%20starten">Ersten Decision Brief erstellen</a>
+      </div>
+    </section>
+
+    <section id="tools">
+      <div class="wrap">
+        <h2>Ein Kern. Zwei Add-ons.</h2>
+        <p class="section-intro">Starte mit Decision Brief. Schalte Offer Score und Change Impact Check dazu, wenn du sie brauchst.</p>
+
+        <div class="stack">
+          <article class="item">
+            <div class="tag">Kern</div>
+            <div>
+              <h3>Decision Brief</h3>
+              <p>Aus Mails, PDFs und Notizen eine einseitige Entscheidung: Optionen, Annahmen, Risiken, Empfehlung, Next Step.</p>
+            </div>
+          </article>
+          <article class="item">
+            <div class="tag">Add-on</div>
+            <div>
+              <h3>Offer Score</h3>
+              <p>Angebote und Vendor-Vergleiche bewerten — Ampel für Preis, Risiko und Fit, nachvollziehbar begründet.</p>
+            </div>
+          </article>
+          <article class="item">
+            <div class="tag">Add-on</div>
+            <div>
+              <h3>Change Impact Check</h3>
+              <p>Vor Releases und Prozessänderungen: was bricht, wen betrifft’s, Go oder No-Go.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="warum">
+      <div class="wrap diff">
+        <h2>„Das kann meine KI doch auch?“</h2>
+        <p class="section-intro">Stimmt — Zugang zu Mails und Dateien reicht oft für eine Meinung. Realmatics ist dafür gebaut, dass aus Meinung eine wiederholbare Entscheidung wird.</p>
+        <div class="diff-points">
+          <p>Fester Output statt freier Antwort: immer dieselbe Brief-Struktur, die du teilen und abhaken kannst.</p>
+          <p>Entscheidungsspezifische Bewertung — nicht allgemeines Zusammenfassen, sondern Optionen, Risiken und Empfehlung.</p>
+          <p>Nachvollziehbarkeit für Teams: Historie, Templates und Add-ons für Angebote sowie Change-Impact.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="preise">
+      <div class="wrap">
+        <h2>Preise</h2>
+        <p class="section-intro">Transparent starten. Add-ons kommen ab Team dazu.</p>
+
+        <table class="pricing-table">
+          <thead>
+            <tr>
+              <th scope="col">Plan</th>
+              <th scope="col">Preis</th>
+              <th scope="col">Für wen</th>
+              <th scope="col">Enthalten</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Starter</th>
+              <td class="price" data-label="Preis">29 € / Monat</td>
+              <td data-label="Für wen">Solo</td>
+              <td data-label="Enthalten">30 Decision Briefs, Export als PDF/Markdown<span class="note">Ideal zum Ausprobieren im Alltag.</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Team</th>
+              <td class="price" data-label="Preis">79 € / Monat</td>
+              <td data-label="Für wen">3–10 Personen</td>
+              <td data-label="Enthalten">Shared Inbox, Templates, Historie<span class="note">Plus Add-ons: Offer Score &amp; Change Impact Check.</span></td>
+            </tr>
+            <tr>
+              <th scope="row">Pro</th>
+              <td class="price" data-label="Preis">149 € / Monat</td>
+              <td data-label="Für wen">Ops / Agency</td>
+              <td data-label="Enthalten">Alles aus Team, mehr Volumen, API<span class="note">Für wiederkehrende Entscheidungsprozesse im Betrieb.</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="trial">Einmalig testen: <strong>9 € für 5 Briefs</strong> — niedrige Hemmschwelle, klarer Nutzencheck.</p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">Realmatics — Decision Tools für Teams, die liefern müssen.</div>
+    </footer>
+  </div>
+</body>
+</html>
