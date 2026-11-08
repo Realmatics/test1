@@ -1,0 +1,16 @@
+Options -Indexes
+RewriteEngine On
+
+# Never expose secrets or app internals
+<FilesMatch "^(config\.php|config\.sample\.php)$">
+  Require all denied
+</FilesMatch>
+RewriteRule ^(lib|views|data|storage)/ - [F,L]
+
+# Serve existing files/directories directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Route everything else through the app
+RewriteRule ^ index.php [L]

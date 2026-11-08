@@ -4,3 +4,11 @@
 # Local FTP netrc / temp
 *.netrc
 .tmp/
+
+# Realmatics app secrets & runtime data
+web/config.php
+web/data/*.sqlite
+web/data/*.sqlite-journal
+web/storage/uploads/*
+!web/storage/uploads/.gitkeep
+!web/data/.gitkeep

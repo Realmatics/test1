@@ -1,22 +1,28 @@
-# test1
+# Realmatics
 
-FTP-Webspace-Zugriff für Cursor Cloud Agents.
+Entscheidungs-Tools für Kunden: **Decision Brief**, **Offer Score**, **Change Impact Check**.
 
-## MCP `ftp-webspace`
+## App (`web/`)
 
-Der Server liegt unter `.mcp/mcp-server-ftp/` und wird von Cursor als
+PHP-Anwendung für Shared-Hosting / FTP-Webspace.
 
-`node /workspace/.mcp/mcp-server-ftp/build/index.js`
+```bash
+cd web
+cp config.sample.php config.php   # API-Key & Setup-Key setzen
+php -S 127.0.0.1:8080 router.php
+```
 
-gestartet. Beim ersten Start werden npm-Dependencies bei Bedarf installiert.
+Deploy nach FTP:
 
-## Direktzugriff (ohne MCP)
+```bash
+php scripts/deploy-web.php
+```
+
+Details: `web/DEPLOY.md`.
+
+## FTP / MCP
 
 ```bash
 node scripts/ftp.mjs check
 node scripts/ftp.mjs list /
-node scripts/ftp.mjs download <remote> [local]
-node scripts/ftp.mjs upload <local> <remote>
 ```
-
-Benötigt die Cloud-Agent-Secrets `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, optional `FTP_PORT`, `FTP_SECURE`.
